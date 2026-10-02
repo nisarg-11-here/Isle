@@ -67,7 +67,7 @@ Isle reads only the **last words** of a task, so "Monday night football" stays a
 You need macOS 14 or later and Xcode 16 or later.
 
 ```sh
-git clone https://github.com/<you>/Isle.git
+git clone https://github.com/nisarg-11-here/Isle.git
 cd Isle
 Scripts/bundle.sh
 ```
