@@ -26,9 +26,14 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 PLIST
 codesign --force --sign - "$APP"
 pkill -x Isle 2>/dev/null || true
-while pgrep -x Isle >/dev/null; do sleep 0.1; done  # open fails while the old one still exits
 mkdir -p ~/Applications
 rm -rf ~/Applications/Isle.app
 ditto "$APP" ~/Applications/Isle.app
-open -g ~/Applications/Isle.app  # -g: start in the background, do not take focus
+# -g: start in the background, do not take focus. Right after the copy, LaunchServices can
+# refuse with error -600 until it registers the new bundle, so try again.
+for i in 1 2 3 4 5 6 7 8 9 10; do
+  open -g ~/Applications/Isle.app 2>/dev/null && break
+  sleep 1
+done
+pgrep -x Isle >/dev/null || { echo "could not start Isle; run: open ~/Applications/Isle.app"; exit 1; }
 echo "installed and started ~/Applications/Isle.app"
