@@ -19,6 +19,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             Harness.snapshot(model: model, panel: panel, dir: URL(fileURLWithPath: dir))
         }
         if env["ISLE_SELFTEST"] != nil, let panel {
+            // The self-test adds tasks. It must never touch the user's real list.
+            guard env["ISLE_DATA"] != nil else {
+                print("ISLE_SELFTEST needs ISLE_DATA=<scratch file>. It never runs on your real list.")
+                exit(2)
+            }
             Harness.selfTest(model: model, panel: panel)
         }
     }

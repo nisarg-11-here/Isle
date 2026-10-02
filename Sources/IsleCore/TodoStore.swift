@@ -53,7 +53,12 @@ public final class TodoStore {
     private func load() {
         guard FileManager.default.fileExists(atPath: url.path) else { return }
         do {
-            todos = try Self.decoder.decode([Todo].self, from: Data(contentsOf: url))
+            let data = try Data(contentsOf: url)
+            todos = try Self.decoder.decode([Todo].self, from: data)
+            // One rolling copy of the last file that loaded, so a bad change can be undone by hand.
+            let backup = url.deletingLastPathComponent()
+                .appendingPathComponent(url.deletingPathExtension().lastPathComponent + ".backup.json")
+            try? data.write(to: backup, options: .atomic)
         } catch {
             // Keep the unreadable file. A save must never overwrite the user's data.
             let backup = url.deletingLastPathComponent()

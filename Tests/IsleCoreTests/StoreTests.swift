@@ -39,3 +39,20 @@ private func tempDir() -> URL {
     #expect(try String(contentsOf: dir.appendingPathComponent(backup), encoding: .utf8) == "not json")
     #expect(TodoStore(url: url).todos.map(\.title) == ["fresh"])
 }
+
+@Test func launchKeepsABackupOfTheLastGoodFile() throws {
+    let dir = tempDir()
+    let url = dir.appendingPathComponent("todos.json")
+    TodoStore(url: url).add("keep me", day: nil, minute: nil)
+
+    _ = TodoStore(url: url)  // a relaunch
+    let backup = dir.appendingPathComponent("todos.backup.json")
+    #expect(try Data(contentsOf: backup) == Data(contentsOf: url))
+    #expect(TodoStore(url: backup).todos.map(\.title) == ["keep me"])
+}
+
+@Test func aFreshStartWritesNoBackup() {
+    let dir = tempDir()
+    _ = TodoStore(url: dir.appendingPathComponent("todos.json"))
+    #expect(!FileManager.default.fileExists(atPath: dir.appendingPathComponent("todos.backup.json").path))
+}
