@@ -10,13 +10,13 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 8) {
             SectionLabel("Theme")
             HStack(spacing: 10) {
-                ForEach(IslandTheme.allCases, id: \.self) { theme in
+                ForEach(IslandTheme.available, id: \.self) { theme in
                     ThemeTile(theme: theme, on: model.theme == theme) {
                         withAnimation(.island) { model.theme = theme }
                     }
                 }
             }
-            if model.theme == .glass {
+            if model.theme.isGlass {
                 SettingRow("Glass look") {
                     Picker("Glass look", selection: $model.glassLook) {
                         ForEach(GlassLook.allCases, id: \.self) { Text($0.title).tag($0) }
@@ -32,6 +32,9 @@ struct SettingsView: View {
             SettingRow("Launch at login") {
                 Switch(isOn: $launchAtLogin)
                     .onChange(of: launchAtLogin) { _, on in
+                        // The write-back below lands here too. Do not answer it with the opposite call:
+                        // after "requires approval" that would undo the user's registration.
+                        guard on != LaunchAtLogin.isOn else { return }
                         LaunchAtLogin.set(on)
                         launchAtLogin = LaunchAtLogin.isOn  // show the real state if macOS refused
                     }

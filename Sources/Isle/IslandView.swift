@@ -11,11 +11,12 @@ struct IslandView: View {
         let open = model.mode == .open
         let closed = model.mode == .closed
         // The closed island is black in every theme, so it still hides in the notch.
-        let glass = model.theme == .glass && !closed
+        let glass = model.theme.isGlass && !closed
         let shape = NotchShape(top: open ? 10 : 6, bottom: open ? 24 : closed ? 10 : 16)
         ZStack(alignment: .top) {
             if glass { GlassFill(shape: shape).transition(.opacity) }
-            // 1 % on glass, not 0: a fully transparent pixel lets a click fall through the window.
+            // 1 % on glass, not 0. The window server sends a click on a fully transparent pixel to the
+            // window below, and Liquid Glass leaves the island's own pixels transparent.
             Color.black.opacity(glass ? 0.01 : 1)
             content
         }
@@ -30,18 +31,15 @@ struct IslandView: View {
         .gesture(TapGesture().onEnded { model.tap() }, including: open ? .subviews : .all)
         .contextMenu { IslandMenu() }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        // A click in the window but outside the island (the open shadow margin) closes it.
-        .background {
-            Color.clear.contentShape(Rectangle()).onTapGesture { if model.mode == .open { model.close() } }
-        }
-        .environment(\.colorScheme, scheme(closed: closed))
+        .environment(\.colorScheme, scheme)
         .tint(.isleOrange)
         .animation(.island, value: size)
     }
 
-    /// Black backgrounds need the dark scheme. Glass follows its look setting.
-    private func scheme(closed: Bool) -> ColorScheme {
-        guard model.theme == .glass, !closed else { return .dark }
+    /// Standard is black, so dark. Glass follows its look setting. The closed island sets dark itself,
+    /// so the content that fades out on a close keeps its scheme.
+    private var scheme: ColorScheme {
+        guard model.theme.isGlass else { return .dark }
         switch model.glassLook {
         case .system: return systemScheme
         case .light: return .light
@@ -51,7 +49,7 @@ struct IslandView: View {
 
     @ViewBuilder private var content: some View {
         switch model.mode {
-        case .closed: ClosedView().transition(.opacity)
+        case .closed: ClosedView().environment(\.colorScheme, .dark).transition(.opacity)
         case .peek: PeekView().transition(.blurReplace)
         case .open: OpenView().transition(.blurReplace)
         case .alert: AlertView().transition(.blurReplace)

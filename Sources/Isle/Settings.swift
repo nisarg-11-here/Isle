@@ -7,6 +7,18 @@ enum Page { case tasks, settings }
 enum IslandTheme: String, CaseIterable {
     case standard, glass
     var title: String { self == .standard ? "Standard" : "Glass" }
+
+    /// Liquid Glass needs macOS 26. Before it, a saved Glass choice draws as Standard.
+    static var glassAvailable: Bool {
+        if #available(macOS 26.0, *) { return true }
+        return false
+    }
+
+    /// The themes this Mac can show.
+    static var available: [IslandTheme] { glassAvailable ? allCases : [.standard] }
+
+    /// True when the island draws Liquid Glass.
+    var isGlass: Bool { self == .glass && Self.glassAvailable }
 }
 
 /// The color scheme of the Glass theme.

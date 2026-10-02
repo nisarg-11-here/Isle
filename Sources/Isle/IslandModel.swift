@@ -153,7 +153,6 @@ final class IslandModel {
     func hotKey() {
         if mode == .open { return close() }
         bucket = .today
-        page = .tasks
         open(activate: true)
     }
 
@@ -194,6 +193,7 @@ final class IslandModel {
         let wasOpen = mode == .open
         withAnimation(.island) { mode = new }
         if new == .open {
+            page = .tasks  // here, not on close, so a fading settings page does not swap to the list
             // An isolated (harness) island must never take the user's keys.
             if !isolated { panel?.makeKeyAndOrderFront(nil) }
             focusRequest += 1
@@ -202,7 +202,6 @@ final class IslandModel {
         if wasOpen {
             editing = nil
             scheduling = nil
-            page = .tasks
         }
         // At once, so no key typed after Esc or after a click on an alert button is lost.
         if NSApp.isActive || panel?.isKeyWindow == true { giveBackKeyboard() }

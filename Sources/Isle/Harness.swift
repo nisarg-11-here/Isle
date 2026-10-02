@@ -36,6 +36,7 @@ enum Harness {
                 model.theme = .glass
                 model.glassLook = .dark
             }),
+            ("13-glass-light-settings", { model.glassLook = .light }),
         ]
         func step(_ i: Int) {
             guard i < steps.count else { return NSApp.terminate(nil) }
@@ -159,7 +160,7 @@ enum Harness {
             {
                 expect(model.page == .tasks && model.mode == .open, "Esc goes back from settings to the tasks")
                 let saved = UserDefaults.standard.string(forKey: "theme")
-                model.theme = .glass
+                model.theme = saved == "glass" ? .standard : .glass  // a value that differs from the saved one
                 expect(UserDefaults.standard.string(forKey: "theme") == saved, "an isolated run does not save settings")
                 model.theme = .standard
                 model.close()

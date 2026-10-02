@@ -70,7 +70,8 @@ Isle reads only the **last words** of a task, so "Monday night football" stays a
 
 ## Install
 
-You need macOS 14 or later and Xcode 16 or later.
+You need Xcode 26 or later to build (Liquid Glass needs the macOS 26 SDK). Isle runs on macOS 14 or
+later. The Glass theme needs macOS 26; on earlier systems, settings offer only Standard.
 
 ```sh
 git clone https://github.com/nisarg-11-here/Isle.git
@@ -116,8 +117,10 @@ Some details that took more than one try:
   in the light one. `Color.primary` would not do, because it is the label color at 85 % opacity and would
   dim the Standard theme. A pixel diff proved Standard did not change.
 - **Liquid Glass.** Glass uses `glassEffect(.regular, in: NotchShape)` on macOS 26, after Apple's
-  "Applying Liquid Glass to custom views", and a behind-window blur before macOS 26. The Glass theme tile
-  uses a material, not glass, because Apple advises against glass on glass.
+  "Applying Liquid Glass to custom views". The Glass theme tile
+  uses a material, not glass, because Apple advises against glass on glass. On glass, the island sits
+  on a 1 % black fill: the window server sends a click on a fully transparent pixel to the window
+  below, and Liquid Glass leaves the island's own pixels transparent.
 - **Floating days.** A task stores its day as a local `yyyy-MM-dd` key and its time as minutes after
   midnight. 5 PM stays 5 PM when you change time zones.
 - **Safe storage.** Isle saves after every change with an atomic write, so a crash cannot leave half a

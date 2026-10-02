@@ -3,7 +3,12 @@ import SwiftUI
 
 extension Color {
     static let isleGreen = Color(red: 0.19, green: 0.82, blue: 0.35)
-    static let isleOrange = Color(red: 1.0, green: 0.62, blue: 0.04)
+    /// The dark value is the original. On light glass a darker orange keeps times legible (about 4:1).
+    static let isleOrange = Color(nsColor: NSColor(name: nil) {
+        $0.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            ? NSColor(srgbRed: 1.0, green: 0.62, blue: 0.04, alpha: 1)
+            : NSColor(srgbRed: 0.78, green: 0.40, blue: 0, alpha: 1)
+    })
     static let isleRed = Color(red: 1.0, green: 0.27, blue: 0.23)
     static let islePurple = Color(red: 0.75, green: 0.35, blue: 0.95)
     static let isleBlue = Color(red: 0.25, green: 0.6, blue: 1.0)
@@ -57,29 +62,15 @@ struct NotchShape: Shape {
 }
 
 /// Liquid Glass in the island shape (Apple: apply `glassEffect` after other appearance modifiers).
-/// Before macOS 26, a behind-window blur.
+/// The Glass theme exists only on macOS 26 (`IslandTheme.isGlass`), so the else branch never draws.
 struct GlassFill<S: Shape>: View {
     let shape: S
 
     var body: some View {
         if #available(macOS 26.0, *) {
             Color.clear.glassEffect(.regular, in: shape)
-        } else {
-            BehindWindowBlur().clipShape(shape)
         }
     }
-}
-
-struct BehindWindowBlur: NSViewRepresentable {
-    func makeNSView(context: Context) -> NSVisualEffectView {
-        let view = NSVisualEffectView()
-        view.material = .hudWindow
-        view.blendingMode = .behindWindow
-        view.state = .active
-        return view
-    }
-
-    func updateNSView(_ view: NSVisualEffectView, context: Context) {}
 }
 
 struct ProgressRing: View {
