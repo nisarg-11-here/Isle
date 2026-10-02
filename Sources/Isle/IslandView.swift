@@ -15,8 +15,9 @@ struct IslandView: View {
         .frame(width: size.width, height: size.height, alignment: .top)
         .clipShape(NotchShape(top: open ? 10 : 6, bottom: open ? 24 : model.mode == .closed ? 10 : 16))
         .shadow(color: .black.opacity(open ? 0.5 : 0), radius: 18, y: 8)
-        // A tap opens the island. When open, only the controls inside take taps.
-        .simultaneousGesture(TapGesture().onEnded { model.tap() }, including: open ? .subviews : .all)
+        // A tap opens the island. Buttons inside (the alert's Done and Snooze) win over it.
+        // When open, only the controls inside take taps.
+        .gesture(TapGesture().onEnded { model.tap() }, including: open ? .subviews : .all)
         .contextMenu { IslandMenu() }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .environment(\.colorScheme, .dark)

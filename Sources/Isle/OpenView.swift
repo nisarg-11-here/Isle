@@ -28,6 +28,8 @@ struct OpenView: View {
         }
         .padding(.horizontal, 20)
         .padding(.bottom, 14)
+        // A click on empty space ends a rename or a schedule edit.
+        .background { Color.clear.contentShape(Rectangle()).onTapGesture { model.endEditing() } }
         .fixedSize(horizontal: false, vertical: true)
         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { model.openHeight = $0 }
     }
@@ -84,7 +86,25 @@ struct AddField: View {
 
     var body: some View {
         @Bindable var model = model
-        HStack(spacing: 8) {
+        let typing = !model.draft.trimmingCharacters(in: .whitespaces).isEmpty
+        VStack(alignment: .leading, spacing: 8) {
+            field(typing)
+            if typing {
+                let p = model.plan
+                WhenChips(now: model.now, day: p.day, minute: p.minute,
+                          pickDay: { model.pickDay($0) }, pickTime: { model.pickTime($0) })
+                    .padding(.leading, 12)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+        .animation(.snappy, value: typing)
+        .onAppear { focus() }
+        .onChange(of: model.focusRequest) { focus() }
+    }
+
+    private func field(_ typing: Bool) -> some View {
+        @Bindable var model = model
+        return HStack(spacing: 8) {
             Image(systemName: "plus")
                 .font(.system(size: 12, weight: .bold))
                 .foregroundStyle(.white.opacity(focused ? 0.8 : 0.4))
@@ -93,7 +113,7 @@ struct AddField: View {
                 .font(.system(size: 13))
                 .focused($focused)
                 .onSubmit { model.addDraft() }
-            if !model.draft.trimmingCharacters(in: .whitespaces).isEmpty {
+            if typing {
                 let p = model.plan
                 WhenChip(day: p.day, minute: p.minute, now: model.now)
                     .transition(.scale(scale: 0.8).combined(with: .opacity))
@@ -102,13 +122,48 @@ struct AddField: View {
         .padding(.horizontal, 12)
         .frame(height: 36)
         .background(RoundedRectangle(cornerRadius: 11).fill(.white.opacity(focused ? 0.1 : 0.06)))
-        .animation(.snappy, value: model.draft.isEmpty)
-        .onAppear { focus() }
-        .onChange(of: model.focusRequest) { focus() }
     }
 
     private func focus() {
         DispatchQueue.main.async { focused = true }
+    }
+}
+
+/// The day and time choices, shared by the add field and the schedule editor.
+enum WhenChoices {
+    static func days(_ now: Date) -> [(String, String?)] {
+        let today = Day.key(now)
+        return [
+            ("Today", today),
+            ("Tomorrow", Day.adding(1, to: today)),
+            ("Weekend", Day.weekend(after: now)),
+            ("Next week", Day.next(weekday: 2, after: now)),
+            ("Backlog", nil),
+        ]
+    }
+
+    static let times: [(String, Int?)] = [
+        ("Anytime", nil), ("9 AM", 540), ("Noon", 720), ("3 PM", 900), ("6 PM", 1080), ("9 PM", 1260),
+    ]
+}
+
+/// Two rows of chips: a day, then a time. A time counts as chosen only on a task with a day.
+struct WhenChips: View {
+    let now: Date
+    let day: String?
+    let minute: Int?
+    let pickDay: (String?) -> Void
+    let pickTime: (Int?) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                ForEach(WhenChoices.days(now), id: \.0) { d in Chip(d.0, on: day == d.1) { pickDay(d.1) } }
+            }
+            HStack(spacing: 6) {
+                ForEach(WhenChoices.times, id: \.0) { t in Chip(t.0, on: day != nil && minute == t.1) { pickTime(t.1) } }
+            }
+        }
     }
 }
 

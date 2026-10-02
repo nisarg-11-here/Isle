@@ -45,7 +45,7 @@ final class IslandPanel: NSPanel {
 
     override func resignKey() {
         super.resignKey()
-        model.resignedKey()
+        if !model.isolated { model.resignedKey() }
     }
 
     /// Prefer the screen with a notch. Else draw a notch-sized pill on the main screen.
@@ -121,10 +121,18 @@ final class IslandHostingView: NSHostingView<AnyView> {
 
     // SwiftUI's own hover areas also call these methods. Only ours drives the island.
     override func mouseEntered(with event: NSEvent) {
-        if event.trackingArea === hoverArea { model?.hover(true) } else { super.mouseEntered(with: event) }
+        if event.trackingArea === hoverArea {
+            if model?.isolated == false { model?.hover(true) }
+        } else {
+            super.mouseEntered(with: event)
+        }
     }
 
     override func mouseExited(with event: NSEvent) {
-        if event.trackingArea === hoverArea { model?.hover(false) } else { super.mouseExited(with: event) }
+        if event.trackingArea === hoverArea {
+            if model?.isolated == false { model?.hover(false) }
+        } else {
+            super.mouseExited(with: event)
+        }
     }
 }

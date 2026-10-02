@@ -85,16 +85,35 @@ enum Harness {
                 model.hover(true)
             },
             {
-                expect(model.mode == .closed, "a frozen island ignores hover")
-                model.frozen = false
-                model.hover(true)
-            },
-            {
                 expect(model.mode == .peek, "hover peeks")
                 model.hover(false)
             },
             {
                 expect(model.mode == .closed, "leaving the peek closes it")
+                // The user leaves the island and starts to type before the close delay ends.
+                model.open()
+                model.hover(true)
+                model.hover(false)
+                model.draft = "buy"
+            },
+            {
+                expect(model.mode == .open, "typing keeps the island open after the pointer leaves")
+                model.draft = ""
+                model.close()
+                let m = Day.minute(of: Date())
+                model.store.add("ping", day: model.today, minute: m)
+                model.tick()
+            },
+            {
+                let ping = model.store.todos.first { $0.title == "ping" }
+                expect(model.alertTodo?.title == "ping", "a task alerts at its time")
+                if let ping, let m = ping.minute { model.move(ping, day: model.today, minute: max(m - 1, 0)) }
+                model.close()
+                model.tick()
+            },
+            {
+                expect(model.alertTodo?.title == "ping", "a moved task alerts again")
+                model.close()
                 print(failures == 0 ? "ALL PASS" : "\(failures) FAILED")
                 exit(failures == 0 ? 0 : 1)
             },
@@ -108,7 +127,7 @@ enum Harness {
     private static func isolate(_ panel: NSPanel, _ model: IslandModel) {
         panel.ignoresMouseEvents = true
         panel.alphaValue = 0  // invisible: the layer still renders for snapshots
-        model.frozen = true
+        model.isolated = true
     }
 
     private static func save(_ panel: NSPanel, to url: URL) {

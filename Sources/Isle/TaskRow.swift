@@ -27,10 +27,16 @@ struct TaskRow: View {
             .frame(height: 30)
             .background(RoundedRectangle(cornerRadius: 9)
                 .fill(.white.opacity(hover || model.scheduling == todo.id ? 0.07 : 0)))
+            .contentShape(Rectangle())  // the whole row, not only its text, takes hover and clicks
             .onHover { h in withAnimation(.easeOut(duration: 0.12)) { hover = h } }
+            .onTapGesture { model.endEditing() }
             if model.scheduling == todo.id {
                 ScheduleEditor(todo: todo).transition(.opacity.combined(with: .move(edge: .top)))
             }
+        }
+        // Save the rename when it ends: Return, a click elsewhere, or a click on another title.
+        .onChange(of: editing) { was, isEditing in
+            if was && !isEditing { model.rename(todo, to: text) }
         }
         .contextMenu {
             Button("Today") { model.setDay(todo, model.today) }
@@ -52,7 +58,11 @@ struct TaskRow: View {
                     text = todo.title
                     DispatchQueue.main.async { fieldFocused = true }
                 }
-                .onSubmit { model.rename(todo, to: text) }
+                .onSubmit { model.endEditing() }
+                .onExitCommand {
+                    text = todo.title  // Esc cancels the rename
+                    model.endEditing()
+                }
         } else {
             Text(todo.title)
                 .font(.system(size: 13))
@@ -92,6 +102,7 @@ struct TaskRow: View {
 
     /// Show the check fill before the row moves to Done.
     private func check() {
+        guard !checking else { return }  // a double-click must not undo the check
         guard !todo.isDone else { return model.toggle(todo) }
         checking = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
@@ -102,6 +113,7 @@ struct TaskRow: View {
 }
 
 /// Day chips, time chips, and a phrase field, under a row.
+/// Done, Return, Esc, or a click elsewhere closes it. Each chip applies at once.
 struct ScheduleEditor: View {
     @Environment(IslandModel.self) private var model
     let todo: Todo
@@ -109,42 +121,35 @@ struct ScheduleEditor: View {
     @State private var bad = false
 
     var body: some View {
-        let today = model.today
-        let days: [(String, String?)] = [
-            ("Today", today),
-            ("Tomorrow", Day.adding(1, to: today)),
-            ("Weekend", Day.weekend(after: model.now)),
-            ("Next week", Day.next(weekday: 2, after: model.now)),
-            ("Backlog", nil),
-        ]
-        let times: [(String, Int?)] = [("Anytime", nil), ("9 AM", 540), ("Noon", 720), ("3 PM", 900), ("6 PM", 1080), ("9 PM", 1260)]
         VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 6) {
-                ForEach(days, id: \.0) { d in Chip(d.0, on: todo.day == d.1) { model.setDay(todo, d.1) } }
+            WhenChips(now: model.now, day: todo.day, minute: todo.minute,
+                      pickDay: { model.setDay(todo, $0) }, pickTime: { model.setTime(todo, $0) })
+            HStack(spacing: 8) {
+                TextField("", text: $phrase, prompt: Text("or type “fri 4pm”, “oct 12”, “in 3 days”").foregroundColor(.white.opacity(0.3)))
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 12))
+                    .padding(.horizontal, 10)
+                    .frame(height: 26)
+                    .background(RoundedRectangle(cornerRadius: 8).fill(.white.opacity(0.06)))
+                    .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.isleRed.opacity(bad ? 0.7 : 0)))
+                    .onSubmit(apply)
+                    .onChange(of: phrase) { bad = false }
+                Button("Done", action: apply)
+                    .buttonStyle(PillButton(fill: .white, text: .black))
             }
-            HStack(spacing: 6) {
-                ForEach(times, id: \.0) { t in
-                    Chip(t.0, on: todo.day != nil && todo.minute == t.1) { model.setTime(todo, t.1) }
-                }
-            }
-            TextField("", text: $phrase, prompt: Text("or type “fri 4pm”, “oct 12”, “in 3 days”").foregroundColor(.white.opacity(0.3)))
-                .textFieldStyle(.plain)
-                .font(.system(size: 12))
-                .padding(.horizontal, 10)
-                .frame(height: 26)
-                .background(RoundedRectangle(cornerRadius: 8).fill(.white.opacity(0.06)))
-                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.isleRed.opacity(bad ? 0.7 : 0)))
-                .onSubmit {
-                    if model.reschedule(todo, phrase: phrase) {
-                        withAnimation(.snappy) { model.scheduling = nil }
-                    } else {
-                        bad = true
-                    }
-                }
-                .onChange(of: phrase) { bad = false }
         }
         .padding(10)
         .background(RoundedRectangle(cornerRadius: 12).fill(.white.opacity(0.05)))
         .padding(.leading, 28)
+    }
+
+    /// An empty phrase just closes. A phrase that does not read as a date turns the field red.
+    private func apply() {
+        let typed = phrase.trimmingCharacters(in: .whitespaces)
+        if typed.isEmpty || model.reschedule(todo, phrase: typed) {
+            model.endEditing()
+        } else {
+            bad = true
+        }
     }
 }

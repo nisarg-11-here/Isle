@@ -29,9 +29,9 @@ final class IslandModel {
     private(set) var focusRequest = 0
 
     @ObservationIgnored weak var panel: NSPanel?
-    /// Set by the dev harness. Hover and focus loss change nothing, so a live user cannot disturb a run,
-    /// and the island never takes focus, rings, or alerts, so a run cannot disturb the user.
-    @ObservationIgnored var frozen = false
+    /// Set by the dev harness. The panel stops forwarding live hover and focus loss, and the island
+    /// never takes focus, rings, or taps the trackpad, so a run and the user cannot disturb each other.
+    @ObservationIgnored var isolated = false
     @ObservationIgnored private var hovering = false
     @ObservationIgnored private var pending: DispatchWorkItem?
     @ObservationIgnored private var toastWork: DispatchWorkItem?
@@ -86,22 +86,22 @@ final class IslandModel {
     // MARK: Island
 
     func hover(_ inside: Bool) {
-        guard !frozen else { return }
         hovering = inside
         switch (inside, mode) {
         case (true, .closed):
             after(0.1) { [weak self] in
                 guard let self, hovering, mode == .closed else { return }
                 set(.peek)
-                haptic()
+                if !isolated { haptic() }
             }
         case (true, _):
             pending?.cancel()  // keep an open island or an alert while the pointer is on it
         case (false, .peek):
             set(.closed)
-        case (false, .open) where draft.isEmpty && editing == nil && scheduling == nil:
+        case (false, .open) where isIdle:
             after(0.7) { [weak self] in
-                guard let self, !hovering else { return }
+                // Check again: the user may have started to type after the pointer left.
+                guard let self, !hovering, isIdle else { return }
                 set(.closed)
             }
         case (false, .alert):
@@ -111,6 +111,9 @@ final class IslandModel {
         }
     }
 
+    /// Nothing typed and nothing in edit, so the island may close by itself.
+    private var isIdle: Bool { draft.isEmpty && editing == nil && scheduling == nil }
+
     func tap() {
         if mode != .open { open() }
     }
@@ -119,7 +122,7 @@ final class IslandModel {
     /// but typed keys after a hotkey press need the app active. That press is user input, so macOS allows it.
     func open(activate: Bool = false) {
         if case .alert = mode { bucket = .today }
-        if activate && !frozen {
+        if activate && !isolated {
             previousApp = NSWorkspace.shared.frontmostApplication
             NSApp.activate()
         }
@@ -128,13 +131,16 @@ final class IslandModel {
 
     func close() { set(.closed) }
 
-    func hotKey() { mode == .open ? close() : open(activate: true) }
+    /// The hotkey is for capture, so it always opens on Today.
+    func hotKey() {
+        if mode == .open { return close() }
+        bucket = .today
+        open(activate: true)
+    }
 
     func escape() {
-        if editing != nil {
-            editing = nil
-        } else if scheduling != nil {
-            withAnimation(.snappy) { scheduling = nil }
+        if editing != nil || scheduling != nil {
+            endEditing()
         } else if !draft.isEmpty {
             draft = ""
         } else {
@@ -144,7 +150,16 @@ final class IslandModel {
 
     /// The user clicked outside the island.
     func resignedKey() {
-        if mode == .open && !frozen { close() }
+        if mode == .open { close() }
+    }
+
+    /// Ends a rename or a schedule edit. The row saves its rename when `editing` clears.
+    /// The keyboard goes back to the add field.
+    func endEditing() {
+        guard editing != nil || scheduling != nil else { return }
+        editing = nil
+        withAnimation(.snappy) { scheduling = nil }
+        focusRequest += 1
     }
 
     func set(_ new: Mode) {
@@ -155,14 +170,14 @@ final class IslandModel {
         if new == .open {
             panel?.makeKeyAndOrderFront(nil)
             focusRequest += 1
-        } else if wasOpen {
+            return
+        }
+        if wasOpen {
             editing = nil
             scheduling = nil
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { [weak self] in
-                guard let self, mode != .open else { return }
-                giveBackKeyboard()
-            }
         }
+        // At once, so no key typed after Esc or after a click on an alert button is lost.
+        if NSApp.isActive || panel?.isKeyWindow == true { giveBackKeyboard() }
     }
 
     /// Returns focus to the app the user was in before the island opened.
@@ -175,6 +190,7 @@ final class IslandModel {
             }
             NSApp.deactivate()
         } else if let panel, panel.isKeyWindow {
+            panel.makeFirstResponder(nil)
             panel.orderOut(nil)
             panel.orderFrontRegardless()
         }
@@ -191,12 +207,14 @@ final class IslandModel {
 
     func tick() {
         now = Date()
-        guard !frozen, mode == .closed || mode == .peek,
+        guard mode == .closed || mode == .peek,
               let due = store.todos.dueNow(now).first(where: { !alerted.contains($0.id) }) else { return }
         alerted.insert(due.id)
         set(.alert(due.id))
-        haptic()
-        NSSound(named: "Glass")?.play()
+        if !isolated {
+            haptic()
+            NSSound(named: "Glass")?.play()
+        }
         after(12) { [weak self] in self?.set(.closed) }
     }
 
@@ -236,15 +254,16 @@ final class IslandModel {
         withAnimation(.snappy) { store.toggle(todo.id) }
     }
 
+    /// Saves a new title. An empty or unchanged title changes nothing.
     func rename(_ todo: Todo, to title: String) {
         let title = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !title.isEmpty { store.update(todo.id) { $0.title = title } }
-        editing = nil
+        guard !title.isEmpty, title != todo.title else { return }
+        store.update(todo.id) { $0.title = title }
     }
 
     func delete(_ todo: Todo) {
         withAnimation(.snappy) { _ = store.delete(todo.id) }
-        if scheduling == todo.id { scheduling = nil }
+        if scheduling == todo.id { endEditing() }
         showToast("Deleted “\(todo.title)”") { [weak self] in self?.store.restore(todo) }
     }
 
@@ -252,6 +271,7 @@ final class IslandModel {
     func move(_ todo: Todo, day: String?, minute: Int?) {
         let minute = day == nil ? nil : minute
         guard day != todo.day || minute != todo.minute else { return }
+        alerted.remove(todo.id)  // a new time gets a new reminder
         withAnimation(.snappy) {
             store.update(todo.id) {
                 $0.day = day
@@ -259,7 +279,7 @@ final class IslandModel {
             }
         }
         guard destination(day) != bucket else { return }
-        if scheduling == todo.id { scheduling = nil }
+        if scheduling == todo.id { endEditing() }
         showToast("Moved to \(Format.when(day: day, minute: minute, now: now))") { [weak self] in
             self?.store.update(todo.id) {
                 $0.day = todo.day
@@ -277,6 +297,28 @@ final class IslandModel {
         guard let w = QuickParse.when(phrase, now: now) else { return false }
         move(todo, day: w.day ?? todo.day ?? today, minute: w.minute ?? todo.minute)
         return true
+    }
+
+    // MARK: Draft chips
+
+    /// A day chip under the add field. It rewrites the draft's trailing words, so the field
+    /// always shows what the task will get. Nil means Backlog, which has no words: the list decides.
+    func pickDay(_ day: String?) {
+        let p = QuickParse.parse(draft, now: now)
+        if day == nil { bucket = .backlog }
+        rewriteDraft(p.title, day: day, minute: day == nil ? nil : p.minute)
+    }
+
+    /// A time chip under the add field. Nil means Anytime.
+    func pickTime(_ minute: Int?) {
+        let p = QuickParse.parse(draft, now: now)
+        rewriteDraft(p.title, day: p.day, minute: minute)
+    }
+
+    private func rewriteDraft(_ title: String, day: String?, minute: Int?) {
+        let words = QuickParse.phrase(day: day, minute: minute, now: now)
+        draft = words.isEmpty ? title : "\(title) \(words)"
+        focusRequest += 1  // keep typing after a click
     }
 
     func undoLast() {
