@@ -1,5 +1,4 @@
 import IsleCore
-import ServiceManagement
 import SwiftUI
 
 struct IslandView: View {
@@ -153,15 +152,7 @@ struct AlertView: View {
 struct IslandMenu: View {
     var body: some View {
         Text("Open or close: ⌃⌥T")
-        Toggle("Launch at Login", isOn: Binding(
-            get: { SMAppService.mainApp.status == .enabled },
-            set: { on in
-                do {
-                    try on ? SMAppService.mainApp.register() : SMAppService.mainApp.unregister()
-                } catch {
-                    NSLog("Isle: launch at login failed: \(error)")
-                }
-            }))
+        Toggle("Launch at Login", isOn: Binding(get: { LaunchAtLogin.isOn }, set: { LaunchAtLogin.set($0) }))
         Button("Show Data File") { NSWorkspace.shared.activateFileViewerSelecting([TodoStore.defaultURL]) }
         Divider()
         Button("Quit Isle") { NSApp.terminate(nil) }

@@ -27,6 +27,24 @@ final class IslandModel {
     private(set) var toast: Toast?
     /// Goes up by one each time the add field must take focus.
     private(set) var focusRequest = 0
+    var page: Page = .tasks
+
+    // MARK: Settings, kept in UserDefaults
+
+    var theme = IslandTheme(rawValue: UserDefaults.standard.string(forKey: "theme") ?? "") ?? .standard {
+        didSet { remember(theme.rawValue, "theme") }
+    }
+    var glassLook = GlassLook(rawValue: UserDefaults.standard.string(forKey: "glassLook") ?? "") ?? .system {
+        didSet { remember(glassLook.rawValue, "glassLook") }
+    }
+    var reminderSound = UserDefaults.standard.object(forKey: "reminderSound") as? Bool ?? true {
+        didSet { remember(reminderSound, "reminderSound") }
+    }
+
+    /// A harness run shares the app's UserDefaults, so an isolated island never writes them.
+    private func remember(_ value: Any, _ key: String) {
+        if !isolated { UserDefaults.standard.set(value, forKey: key) }
+    }
 
     @ObservationIgnored weak var panel: NSPanel?
     /// Set by the dev harness. The panel stops forwarding live hover and focus loss, and the island
@@ -135,11 +153,14 @@ final class IslandModel {
     func hotKey() {
         if mode == .open { return close() }
         bucket = .today
+        page = .tasks
         open(activate: true)
     }
 
     func escape() {
-        if editing != nil || scheduling != nil {
+        if page == .settings {
+            toggleSettings()
+        } else if editing != nil || scheduling != nil {
             endEditing()
         } else if !draft.isEmpty {
             draft = ""
@@ -151,6 +172,11 @@ final class IslandModel {
     /// The user clicked outside the island.
     func resignedKey() {
         if mode == .open { close() }
+    }
+
+    func toggleSettings() {
+        endEditing()
+        withAnimation(.snappy) { page = page == .settings ? .tasks : .settings }
     }
 
     /// Ends a rename or a schedule edit. The row saves its rename when `editing` clears.
@@ -176,6 +202,7 @@ final class IslandModel {
         if wasOpen {
             editing = nil
             scheduling = nil
+            page = .tasks
         }
         // At once, so no key typed after Esc or after a click on an alert button is lost.
         if NSApp.isActive || panel?.isKeyWindow == true { giveBackKeyboard() }
@@ -214,7 +241,7 @@ final class IslandModel {
         set(.alert(due.id))
         if !isolated {
             haptic()
-            NSSound(named: "Glass")?.play()
+            if reminderSound { NSSound(named: "Glass")?.play() }
         }
         after(12) { [weak self] in self?.set(.closed) }
     }
