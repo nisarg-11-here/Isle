@@ -64,6 +64,18 @@ enum Harness {
             NSApp.sendEvent(e)
         }
         func type(_ text: String) { text.forEach { key(String($0), 0) } }
+        /// A real click through AppKit and SwiftUI hit testing, at a point in window coordinates.
+        func click(_ point: NSPoint) {
+            for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+                guard let e = NSEvent.mouseEvent(with: type, location: point, modifierFlags: [],
+                                                 timestamp: ProcessInfo.processInfo.systemUptime,
+                                                 windowNumber: panel.windowNumber, context: nil, eventNumber: 0,
+                                                 clickCount: 1, pressure: type == .leftMouseDown ? 1 : 0) else { continue }
+                panel.sendEvent(e)
+            }
+        }
+        /// An empty spot in the lower left of the island, away from any text.
+        func emptySpot() -> NSPoint { NSPoint(x: panel.frame.width * 0.12, y: panel.frame.height * 0.3) }
         let esc = "\u{1b}"
         let steps: [() -> Void] = [
             { model.hotKey() },
@@ -151,6 +163,24 @@ enum Harness {
                 expect(UserDefaults.standard.string(forKey: "theme") == saved, "an isolated run does not save settings")
                 model.theme = .standard
                 model.close()
+            },
+            { model.set(.peek) },
+            {
+                click(emptySpot())
+            },
+            {
+                expect(model.mode == .open, "Standard: a click on the peek opens the island")
+                model.close()
+                model.theme = .glass
+            },
+            { model.set(.peek) },
+            {
+                click(emptySpot())
+            },
+            {
+                expect(model.mode == .open, "Glass: a click on the peek opens the island")
+                model.close()
+                model.theme = .standard
                 print(failures == 0 ? "ALL PASS" : "\(failures) FAILED")
                 exit(failures == 0 ? 0 : 1)
             },

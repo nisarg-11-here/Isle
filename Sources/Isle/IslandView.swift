@@ -20,6 +20,9 @@ struct IslandView: View {
         }
         .frame(width: size.width, height: size.height, alignment: .top)
         .clipShape(shape)
+        // The whole island takes clicks. On glass the fill is clear, so without this a click on an
+        // empty spot hit nothing and the island did not open.
+        .contentShape(shape)
         .shadow(color: .black.opacity(open && !glass ? 0.5 : 0), radius: 18, y: 8)
         // A tap opens the island. Buttons inside (the alert's Done and Snooze) win over it.
         // When open, only the controls inside take taps.
