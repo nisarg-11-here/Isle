@@ -24,6 +24,7 @@ enum Snapshot {
             guard i < steps.count else { return NSApp.terminate(nil) }
             steps[i].1()
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                NSLog("snapshot \(steps[i].0): mode=\(model.mode) key=\(panel.isKeyWindow) frame=\(panel.frame) openHeight=\(model.openHeight)")
                 save(panel, to: dir.appendingPathComponent("\(steps[i].0).png"))
                 step(i + 1)
             }
@@ -32,9 +33,17 @@ enum Snapshot {
     }
 
     private static func save(_ panel: NSPanel, to url: URL) {
-        guard let view = panel.contentView,
-              let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return }
-        view.cacheDisplay(in: view.bounds, to: rep)
+        guard let layer = panel.contentView?.layer else { return }
+        let scale = panel.backingScaleFactor
+        let size = layer.bounds.size
+        guard let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(size.width * scale),
+                                         pixelsHigh: Int(size.height * scale), bitsPerSample: 8, samplesPerPixel: 4,
+                                         hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB,
+                                         bytesPerRow: 0, bitsPerPixel: 0),
+              let ctx = NSGraphicsContext(bitmapImageRep: rep)?.cgContext else { return }
+        ctx.translateBy(x: 0, y: size.height * scale)
+        ctx.scaleBy(x: scale, y: -scale)
+        layer.render(in: ctx)
         try? rep.representation(using: .png, properties: [:])?.write(to: url)
     }
 }
