@@ -29,5 +29,5 @@ pkill -x Isle 2>/dev/null || true
 mkdir -p ~/Applications
 rm -rf ~/Applications/Isle.app
 ditto "$APP" ~/Applications/Isle.app
-open ~/Applications/Isle.app
+open -g ~/Applications/Isle.app  # -g: start in the background, do not take focus
 echo "installed and started ~/Applications/Isle.app"

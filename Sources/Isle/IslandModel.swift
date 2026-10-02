@@ -29,7 +29,8 @@ final class IslandModel {
     private(set) var focusRequest = 0
 
     @ObservationIgnored weak var panel: NSPanel?
-    /// Set by the dev harness: hover and focus loss change nothing, so a live user cannot disturb a run.
+    /// Set by the dev harness. Hover and focus loss change nothing, so a live user cannot disturb a run,
+    /// and the island never takes focus, rings, or alerts, so a run cannot disturb the user.
     @ObservationIgnored var frozen = false
     @ObservationIgnored private var hovering = false
     @ObservationIgnored private var pending: DispatchWorkItem?
@@ -114,14 +115,20 @@ final class IslandModel {
         if mode != .open { open() }
     }
 
-    func open() {
+    /// `activate` is only for the hotkey. A click reaches the panel without activating the app,
+    /// but typed keys after a hotkey press need the app active. That press is user input, so macOS allows it.
+    func open(activate: Bool = false) {
         if case .alert = mode { bucket = .today }
+        if activate && !frozen {
+            previousApp = NSWorkspace.shared.frontmostApplication
+            NSApp.activate()
+        }
         set(.open)
     }
 
     func close() { set(.closed) }
 
-    func hotKey() { mode == .open ? close() : open() }
+    func hotKey() { mode == .open ? close() : open(activate: true) }
 
     func escape() {
         if editing != nil {
@@ -146,10 +153,6 @@ final class IslandModel {
         let wasOpen = mode == .open
         withAnimation(.island) { mode = new }
         if new == .open {
-            // A panel takes the keyboard only when the app is active. The hotkey is user input,
-            // so macOS lets us activate. Remember who had focus to hand it back on close.
-            previousApp = NSWorkspace.shared.frontmostApplication
-            NSApp.activate()
             panel?.makeKeyAndOrderFront(nil)
             focusRequest += 1
         } else if wasOpen {
@@ -164,6 +167,7 @@ final class IslandModel {
 
     /// Returns focus to the app the user was in before the island opened.
     private func giveBackKeyboard() {
+        defer { previousApp = nil }
         if NSApp.isActive {
             if let previousApp, previousApp != .current {
                 NSApp.yieldActivation(to: previousApp)
@@ -187,7 +191,7 @@ final class IslandModel {
 
     func tick() {
         now = Date()
-        guard mode == .closed || mode == .peek,
+        guard !frozen, mode == .closed || mode == .peek,
               let due = store.todos.dueNow(now).first(where: { !alerted.contains($0.id) }) else { return }
         alerted.insert(due.id)
         set(.alert(due.id))

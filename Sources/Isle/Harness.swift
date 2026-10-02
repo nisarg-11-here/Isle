@@ -104,9 +104,10 @@ enum Harness {
         }
     }
 
-    /// A live user must not change the states: drop their clicks, hover, and focus changes.
+    /// A run and a live user must not touch each other: hide the panel, drop clicks, hover, and focus.
     private static func isolate(_ panel: NSPanel, _ model: IslandModel) {
         panel.ignoresMouseEvents = true
+        panel.alphaValue = 0  // invisible: the layer still renders for snapshots
         model.frozen = true
     }
 
