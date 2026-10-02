@@ -26,6 +26,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 PLIST
 codesign --force --sign - "$APP"
 pkill -x Isle 2>/dev/null || true
+while pgrep -x Isle >/dev/null; do sleep 0.1; done  # open fails while the old one still exits
 mkdir -p ~/Applications
 rm -rf ~/Applications/Isle.app
 ditto "$APP" ~/Applications/Isle.app

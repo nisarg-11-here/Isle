@@ -15,14 +15,16 @@ island drops down and asks if it is done.
 - **Lives in the notch.** When closed, the island hides in the notch. Two small wings show today's
   progress ring and the time of your next task.
 - **Peeks on hover.** Point at the notch to see the next task. Click to open.
-- **Quick add with plain words.** The trailing words of a task set its day and time. A chip shows where
-  the task will go before you press Return.
+- **Quick add with plain words or chips.** The trailing words of a task set its day and time. While you
+  type, day and time chips appear under the field. A chip writes its words into the field, so you
+  always see what the task gets, and a tag at the right shows where it will go.
 - **Three lists.** *Today* (with overdue tasks and a "now" line), *Upcoming* (grouped by day), and
   *Backlog* (no date yet).
 - **Plan in two clicks.** Hover a row and click ☀︎ to move it to today. Click the calendar to pick a day
-  chip, a time chip, or type a phrase like `fri 4pm`.
+  chip, a time chip, or type a phrase like `fri 4pm`. Click **Done**, or press Return or Esc, to close it.
+- **Rename in place.** Click a title to edit it. Return or a click elsewhere saves. Esc cancels.
 - **Reminders in the island.** At a task's time, the island expands with **Done** and **Snooze 10m**.
-- **Undo.** Delete and move show a short undo bar.
+- **Undo.** A delete, or a move that takes a task out of the list, shows a short undo bar.
 - **Local and private.** Tasks stay in one JSON file on your Mac. No account, no network.
 
 | Closed | Peek | Reminder |
