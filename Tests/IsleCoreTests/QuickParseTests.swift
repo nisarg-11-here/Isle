@@ -46,7 +46,7 @@ private func p(_ s: String) -> Parsed { QuickParse.parse(s, now: now, calendar: 
 }
 
 @Test func titleWordsSurvive() {
-    for s in ["Monday night football", "read 1984", "finish chapter 3", "call tom", "look at",
+    for s in ["Monday night football", "read 1984", "finish chapter 3", "call tom", "call tod", "look at",
               "Saturday", "x feb 30", "pay rent on", "buy 2 eggs"] {
         #expect(p(s) == Parsed(title: s), "\(s)")
     }
@@ -81,4 +81,25 @@ private func p(_ s: String) -> Parsed { QuickParse.parse(s, now: now, calendar: 
     #expect(Format.day("2026-10-06", now: now, calendar: cal) == "Tuesday")
     #expect(Format.day("2026-10-20", now: now, calendar: cal) == "Tue, Oct 20")
     #expect(Format.when(day: nil, minute: nil, now: now, calendar: cal) == "Backlog")
+}
+
+@Test func hugeCountsDoNotParseOrCrash() {
+    #expect(p("x in 2000000000000000000 w") == Parsed(title: "x in 2000000000000000000 w"))
+    #expect(p("x in 3000000 days") == Parsed(title: "x in 3000000 days"))
+    #expect(p("x in 999 days").day == "2029-06-27")
+}
+
+/// A chip writes words into the add field. Those words must read back as the same day and time.
+@Test func phraseRoundTrips() throws {
+    for ahead in 0...45 {
+        let day = Day.adding(ahead, to: "2026-10-02", cal)
+        for minute in [nil, 0, 540, 720, 765, 1020, 1439] as [Int?] {
+            let words = QuickParse.phrase(day: day, minute: minute, now: now, calendar: cal)
+            let back = p("buy milk \(words)")
+            #expect(back == Parsed(title: "buy milk", day: day, minute: minute), "\(day) \(String(describing: minute)) → \(words)")
+        }
+    }
+    #expect(QuickParse.phrase(day: nil, minute: 1050, now: now, calendar: cal) == "5:30pm")
+    #expect(QuickParse.phrase(day: "2026-10-03", minute: nil, now: now, calendar: cal) == "tomorrow")
+    #expect(QuickParse.phrase(day: nil, minute: nil, now: now, calendar: cal) == "")
 }

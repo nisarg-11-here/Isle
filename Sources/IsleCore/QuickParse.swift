@@ -49,6 +49,30 @@ public enum QuickParse {
         return p
     }
 
+    /// The words that `parse` reads back as `day` and `minute`, like "tomorrow 5:30pm".
+    /// A chip writes them into the add field, so the field always shows what the task will get.
+    public static func phrase(day: String?, minute: Int?, now: Date, calendar cal: Calendar = .current) -> String {
+        var words: [String] = []
+        if let day, let date = Day.date(day, cal), let today = Day.date(Day.key(now, cal), cal) {
+            switch cal.dateComponents([.day], from: today, to: date).day ?? 0 {
+            case 0: words.append("today")
+            case 1: words.append("tomorrow")
+            case 2...6: words.append(weekdayNames[cal.component(.weekday, from: date) - 1])
+            default: words.append("\(monthNames[cal.component(.month, from: date) - 1]) \(cal.component(.day, from: date))")
+            }
+        }
+        if let minute {
+            let h = minute / 60, m = minute % 60
+            let hour = h % 12 == 0 ? 12 : h % 12
+            let ampm = h < 12 ? "am" : "pm"
+            words.append(m == 0 ? "\(hour)\(ampm)" : String(format: "%d:%02d%@", hour, m, ampm))
+        }
+        return words.joined(separator: " ")
+    }
+
+    private static let weekdayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]
+    private static let monthNames = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"]
+
     private static let junk = CharacterSet.whitespaces.union(CharacterSet(charactersIn: ",;:-–—"))
     private static let weekdays: [String: Int] = [
         "sun": 1, "sunday": 1, "mon": 2, "monday": 2, "tue": 3, "tues": 3, "tuesday": 3,
@@ -88,7 +112,7 @@ public enum QuickParse {
             afterAt = false
 
             switch w {
-            case "today", "tod":
+            case "today":
                 newDay = today
             case "tonight":
                 newDay = today
@@ -100,7 +124,8 @@ public enum QuickParse {
             case "next" where n1 == "week":
                 newDay = Day.next(weekday: 2, after: now, cal)
                 used = 2
-            case "in" where number(n1) != nil && units[n2 ?? ""] != nil:
+            // Counts stop at 999, so a long number cannot overflow.
+            case "in" where (1...999).contains(number(n1) ?? 0) && units[n2 ?? ""] != nil:
                 newDay = Day.adding(number(n1)! * units[n2!]!, to: today, cal)
                 used = 3
             // Fillers count only in front of the word they introduce.
