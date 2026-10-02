@@ -106,8 +106,10 @@ Some details that took more than one try:
   hotkey activates Isle, and closing hands focus back to the app you were in.
 - **Floating days.** A task stores its day as a local `yyyy-MM-dd` key and its time as minutes after
   midnight. 5 PM stays 5 PM when you change time zones.
-- **Safe storage.** If `todos.json` does not decode, Isle moves it aside as `todos.corrupt-<time>.json`
-  and starts empty. It never overwrites your data.
+- **Safe storage.** Isle saves after every change with an atomic write, so a crash cannot leave half a
+  file. On each launch it copies the file that loaded to `todos.backup.json`. If `todos.json` does not
+  decode, Isle moves it aside as `todos.corrupt-<time>.json` and starts empty. Quit Isle before you
+  edit the file by hand, or the next save replaces your edit.
 
 ## Develop
 
@@ -121,7 +123,8 @@ ISLE_SNAPSHOT=/tmp/shots swift run Isle      # saves a PNG of each island state
 - The harness modes run the panel invisibly and ignore your pointer, so you can keep working.
 - `swift Scripts/make-icon.swift` redraws the app icon.
 
-Your tasks live in `~/Library/Application Support/Isle/todos.json`.
+Your tasks live in `~/Library/Application Support/Isle/todos.json`, beside `todos.backup.json`.
+Time Machine backs up that folder.
 
 ## Not yet
 
