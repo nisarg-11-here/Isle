@@ -15,15 +15,22 @@ struct OpenView: View {
         let side = (model.islandSize.width - model.notch.width) / 2 - 20
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 0) {
-                BucketTabs().frame(width: side, alignment: .leading)
+                Group {
+                    if model.page == .settings { SettingsBack() } else { BucketTabs() }
+                }
+                .frame(width: side, alignment: .leading)
                 Color.clear.frame(width: model.notch.width)
                 HeaderInfo().frame(width: side, alignment: .trailing)
             }
             .frame(height: model.notch.height)
-            AddField()
-            TaskList()
-            if let toast = model.toast {
-                ToastBar(toast: toast).transition(.move(edge: .bottom).combined(with: .opacity))
+            if model.page == .settings {
+                SettingsView().transition(.opacity)
+            } else {
+                AddField()
+                TaskList()
+                if let toast = model.toast {
+                    ToastBar(toast: toast).transition(.move(edge: .bottom).combined(with: .opacity))
+                }
             }
         }
         .padding(.horizontal, 20)
@@ -76,6 +83,10 @@ struct HeaderInfo: View {
                 Text("\(p.done)/\(p.total)").font(.digits(11)).foregroundStyle(Color.ink.opacity(0.45))
                 ProgressRing(progress: p).frame(width: 14, height: 14)
             }
+            IconButton(icon: model.page == .settings ? "gearshape.fill" : "gearshape", help: "Settings (⌘,)") {
+                model.toggleSettings()
+            }
+            .keyboardShortcut(",", modifiers: .command)
         }
     }
 }

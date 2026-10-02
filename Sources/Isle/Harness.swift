@@ -28,6 +28,14 @@ enum Harness {
                 model.set(.open)
             }),
             ("10-glass-light", { model.glassLook = .light }),
+            ("11-settings", {
+                model.theme = .standard
+                model.page = .settings
+            }),
+            ("12-glass-settings", {
+                model.theme = .glass
+                model.glassLook = .dark
+            }),
         ]
         func step(_ i: Int) {
             guard i < steps.count else { return NSApp.terminate(nil) }
@@ -121,6 +129,27 @@ enum Harness {
             },
             {
                 expect(model.alertTodo?.title == "ping", "a moved task alerts again")
+                model.close()
+                model.open()
+            },
+            {
+                // The header with the ⌘, button exists only after the open step has rendered.
+                if let e = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: .command, timestamp: 0,
+                                            windowNumber: panel.windowNumber, context: nil, characters: ",",
+                                            charactersIgnoringModifiers: ",", isARepeat: false, keyCode: 43) {
+                    _ = panel.performKeyEquivalent(with: e)
+                }
+            },
+            {
+                expect(model.page == .settings, "⌘, opens settings")
+                key(esc, 53)
+            },
+            {
+                expect(model.page == .tasks && model.mode == .open, "Esc goes back from settings to the tasks")
+                let saved = UserDefaults.standard.string(forKey: "theme")
+                model.theme = .glass
+                expect(UserDefaults.standard.string(forKey: "theme") == saved, "an isolated run does not save settings")
+                model.theme = .standard
                 model.close()
                 print(failures == 0 ? "ALL PASS" : "\(failures) FAILED")
                 exit(failures == 0 ? 0 : 1)
