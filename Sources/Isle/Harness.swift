@@ -128,6 +128,10 @@ enum Harness {
         panel.ignoresMouseEvents = true
         panel.alphaValue = 0  // invisible: the layer still renders for snapshots
         model.isolated = true
+        // A test run must never be the active app: the user's keys would land here.
+        if NSApp.isActive { NSApp.deactivate() }
+        NotificationCenter.default.addObserver(forName: NSApplication.didBecomeActiveNotification,
+                                               object: nil, queue: .main) { _ in NSApp.deactivate() }
     }
 
     private static func save(_ panel: NSPanel, to url: URL) {

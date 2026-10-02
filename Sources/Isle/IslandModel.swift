@@ -168,7 +168,8 @@ final class IslandModel {
         let wasOpen = mode == .open
         withAnimation(.island) { mode = new }
         if new == .open {
-            panel?.makeKeyAndOrderFront(nil)
+            // An isolated (harness) island must never take the user's keys.
+            if !isolated { panel?.makeKeyAndOrderFront(nil) }
             focusRequest += 1
             return
         }
