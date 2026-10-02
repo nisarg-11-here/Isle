@@ -9,6 +9,14 @@ extension Color {
     static let isleBlue = Color(red: 0.25, green: 0.6, blue: 1.0)
 }
 
+extension Color {
+    /// White in the dark scheme, black in the light one. Standard is always dark, so it keeps its exact whites.
+    /// (`Color.primary` is the label color at 85 % opacity, so it would dim Standard.)
+    static let ink = Color(nsColor: NSColor(name: nil) { $0.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? .white : .black })
+    /// The opposite of ink: text on an ink-filled chip or button.
+    static let inkInverse = Color(nsColor: NSColor(name: nil) { $0.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? .black : .white })
+}
+
 extension Animation {
     static let island = Animation.spring(response: 0.42, dampingFraction: 0.8)
 }
@@ -55,7 +63,7 @@ struct ProgressRing: View {
     var body: some View {
         let f = progress.total == 0 ? 0 : CGFloat(progress.done) / CGFloat(progress.total)
         ZStack {
-            Circle().stroke(.white.opacity(0.15), lineWidth: lineWidth)
+            Circle().stroke(Color.ink.opacity(0.15), lineWidth: lineWidth)
             Circle()
                 .trim(from: 0, to: f)
                 .stroke(Color.isleGreen, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
@@ -72,7 +80,7 @@ struct CheckCircle: View {
     var body: some View {
         Button(action: action) {
             ZStack {
-                Circle().strokeBorder(.white.opacity(done ? 0 : 0.35), lineWidth: 1.5)
+                Circle().strokeBorder(Color.ink.opacity(done ? 0 : 0.35), lineWidth: 1.5)
                 Circle().fill(Color.isleGreen).scaleEffect(done ? 1 : 0.01)
                 Image(systemName: "checkmark")
                     .font(.system(size: 9, weight: .black))
@@ -103,10 +111,10 @@ struct Chip: View {
         Button(action: action) {
             Text(label)
                 .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(on ? Color.black : Color.white.opacity(0.75))
+                .foregroundStyle(on ? Color.inkInverse : Color.ink.opacity(0.75))
                 .padding(.horizontal, 9)
                 .frame(height: 22)
-                .background(Capsule().fill(on ? Color.white : Color.white.opacity(0.08)))
+                .background(Capsule().fill(on ? Color.ink : Color.ink.opacity(0.08)))
                 .contentShape(Capsule())
         }
         .buttonStyle(.plain)
@@ -116,7 +124,7 @@ struct Chip: View {
 struct IconButton: View {
     let icon: String
     let help: String
-    var tint: Color = .white
+    var tint: Color = .ink
     let action: () -> Void
     @State private var hover = false
 
@@ -126,7 +134,7 @@ struct IconButton: View {
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(tint.opacity(hover ? 1 : 0.6))
                 .frame(width: 24, height: 22)
-                .background(RoundedRectangle(cornerRadius: 6).fill(.white.opacity(hover ? 0.1 : 0)))
+                .background(RoundedRectangle(cornerRadius: 6).fill(Color.ink.opacity(hover ? 0.1 : 0)))
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

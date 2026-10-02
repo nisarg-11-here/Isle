@@ -72,7 +72,7 @@ struct NextLabel: View {
         } else if p.total > 0 {
             Text("\(p.total - p.done)")
                 .font(.digits(compact ? 11 : 12))
-                .foregroundStyle(.white.opacity(0.7))
+                .foregroundStyle(Color.ink.opacity(0.7))
         }
     }
 }
@@ -87,7 +87,7 @@ struct PeekView: View {
                 ProgressRing(progress: p).frame(width: 14, height: 14)
                 Text("\(p.done)/\(p.total)")
                     .font(.digits(11))
-                    .foregroundStyle(.white.opacity(0.55))
+                    .foregroundStyle(Color.ink.opacity(0.55))
                 Spacer(minLength: model.notch.width)
                 NextLabel(compact: false)
             }
@@ -95,7 +95,7 @@ struct PeekView: View {
             .frame(height: model.notch.height)
             Text(line(p))
                 .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(.white.opacity(0.85))
+                .foregroundStyle(Color.ink.opacity(0.85))
                 .lineLimit(1)
                 .padding(.horizontal, 24)
                 .frame(height: 26)
@@ -134,11 +134,11 @@ struct AlertView: View {
                 HStack(spacing: 8) {
                     Text(todo.title)
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Color.ink)
                         .lineLimit(1)
                     Spacer(minLength: 8)
                     Button("Snooze 10m") { model.snooze(todo) }
-                        .buttonStyle(PillButton(fill: .white.opacity(0.14), text: .white))
+                        .buttonStyle(PillButton(fill: Color.ink.opacity(0.14), text: .ink))
                     Button("Done") { model.alertDone(todo) }
                         .buttonStyle(PillButton(fill: .isleGreen, text: .black))
                 }

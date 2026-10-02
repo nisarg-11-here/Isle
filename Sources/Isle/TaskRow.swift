@@ -26,7 +26,7 @@ struct TaskRow: View {
             .padding(.horizontal, 10)
             .frame(height: 30)
             .background(RoundedRectangle(cornerRadius: 9)
-                .fill(.white.opacity(hover || model.scheduling == todo.id ? 0.07 : 0)))
+                .fill(Color.ink.opacity(hover || model.scheduling == todo.id ? 0.07 : 0)))
             .contentShape(Rectangle())  // the whole row, not only its text, takes hover and clicks
             .onHover { h in withAnimation(.easeOut(duration: 0.12)) { hover = h } }
             .onTapGesture { model.endEditing() }
@@ -52,7 +52,7 @@ struct TaskRow: View {
             TextField("", text: $text)
                 .textFieldStyle(.plain)
                 .font(.system(size: 13))
-                .foregroundStyle(.white)
+                .foregroundStyle(Color.ink)
                 .focused($fieldFocused)
                 .onAppear {
                     text = todo.title
@@ -66,8 +66,8 @@ struct TaskRow: View {
         } else {
             Text(todo.title)
                 .font(.system(size: 13))
-                .strikethrough(done, color: .white.opacity(0.4))
-                .foregroundStyle(.white.opacity(done ? 0.35 : 0.92))
+                .strikethrough(done, color: Color.ink.opacity(0.4))
+                .foregroundStyle(Color.ink.opacity(done ? 0.35 : 0.92))
                 .lineLimit(1)
                 .onTapGesture { model.editing = todo.id }
         }
@@ -77,7 +77,7 @@ struct TaskRow: View {
         switch meta {
         case .time:
             if let m = todo.minute {
-                Text(Format.time(m)).font(.digits(11)).foregroundStyle(done ? Color.white.opacity(0.3) : .isleOrange)
+                Text(Format.time(m)).font(.digits(11)).foregroundStyle(done ? Color.ink.opacity(0.3) : .isleOrange)
             }
         case .day:
             if let d = todo.day {
@@ -125,21 +125,21 @@ struct ScheduleEditor: View {
             WhenChips(now: model.now, day: todo.day, minute: todo.minute,
                       pickDay: { model.setDay(todo, $0) }, pickTime: { model.setTime(todo, $0) })
             HStack(spacing: 8) {
-                TextField("", text: $phrase, prompt: Text("or type “fri 4pm”, “oct 12”, “in 3 days”").foregroundColor(.white.opacity(0.3)))
+                TextField("", text: $phrase, prompt: Text("or type “fri 4pm”, “oct 12”, “in 3 days”").foregroundColor(Color.ink.opacity(0.3)))
                     .textFieldStyle(.plain)
                     .font(.system(size: 12))
                     .padding(.horizontal, 10)
                     .frame(height: 26)
-                    .background(RoundedRectangle(cornerRadius: 8).fill(.white.opacity(0.06)))
+                    .background(RoundedRectangle(cornerRadius: 8).fill(Color.ink.opacity(0.06)))
                     .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.isleRed.opacity(bad ? 0.7 : 0)))
                     .onSubmit(apply)
                     .onChange(of: phrase) { bad = false }
                 Button("Done", action: apply)
-                    .buttonStyle(PillButton(fill: .white, text: .black))
+                    .buttonStyle(PillButton(fill: .ink, text: .inkInverse))
             }
         }
         .padding(10)
-        .background(RoundedRectangle(cornerRadius: 12).fill(.white.opacity(0.05)))
+        .background(RoundedRectangle(cornerRadius: 12).fill(Color.ink.opacity(0.05)))
         .padding(.leading, 28)
     }
 

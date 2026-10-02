@@ -48,11 +48,11 @@ struct BucketTabs: View {
                 } label: {
                     Text(b.title)
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(on ? Color.white : Color.white.opacity(0.45))
+                        .foregroundStyle(on ? Color.ink : Color.ink.opacity(0.45))
                         .padding(.horizontal, 9)
                         .padding(.vertical, 4)
                         .background {
-                            if on { Capsule().fill(.white.opacity(0.14)).matchedGeometryEffect(id: "pill", in: pill) }
+                            if on { Capsule().fill(Color.ink.opacity(0.14)).matchedGeometryEffect(id: "pill", in: pill) }
                         }
                         .contentShape(Capsule())
                 }
@@ -71,9 +71,9 @@ struct HeaderInfo: View {
         HStack(spacing: 8) {
             Text(model.now.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()))
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.6))
+                .foregroundStyle(Color.ink.opacity(0.6))
             if p.total > 0 {
-                Text("\(p.done)/\(p.total)").font(.digits(11)).foregroundStyle(.white.opacity(0.45))
+                Text("\(p.done)/\(p.total)").font(.digits(11)).foregroundStyle(Color.ink.opacity(0.45))
                 ProgressRing(progress: p).frame(width: 14, height: 14)
             }
         }
@@ -107,8 +107,8 @@ struct AddField: View {
         return HStack(spacing: 8) {
             Image(systemName: "plus")
                 .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(.white.opacity(focused ? 0.8 : 0.4))
-            TextField("", text: $model.draft, prompt: Text(model.bucket.prompt).foregroundColor(.white.opacity(0.3)))
+                .foregroundStyle(Color.ink.opacity(focused ? 0.8 : 0.4))
+            TextField("", text: $model.draft, prompt: Text(model.bucket.prompt).foregroundColor(Color.ink.opacity(0.3)))
                 .textFieldStyle(.plain)
                 .font(.system(size: 13))
                 .focused($focused)
@@ -121,7 +121,7 @@ struct AddField: View {
         }
         .padding(.horizontal, 12)
         .frame(height: 36)
-        .background(RoundedRectangle(cornerRadius: 11).fill(.white.opacity(focused ? 0.1 : 0.06)))
+        .background(RoundedRectangle(cornerRadius: 11).fill(Color.ink.opacity(focused ? 0.1 : 0.06)))
     }
 
     private func focus() {
@@ -271,9 +271,9 @@ struct BacklogRows: View {
 
 struct SectionLabel: View {
     let text: String
-    var tint: Color = .white.opacity(0.35)
+    var tint: Color = Color.ink.opacity(0.35)
 
-    init(_ text: String, tint: Color = .white.opacity(0.35)) {
+    init(_ text: String, tint: Color = Color.ink.opacity(0.35)) {
         self.text = text
         self.tint = tint
     }
@@ -314,11 +314,11 @@ struct EmptyState: View {
     var body: some View {
         VStack(spacing: 6) {
             Image(systemName: icon).font(.system(size: 20)).foregroundStyle(tint)
-            Text(title).font(.system(size: 13, weight: .semibold)).foregroundStyle(.white.opacity(0.9))
-            Text(subtitle).font(.system(size: 11)).foregroundStyle(.white.opacity(0.45))
+            Text(title).font(.system(size: 13, weight: .semibold)).foregroundStyle(Color.ink.opacity(0.9))
+            Text(subtitle).font(.system(size: 11)).foregroundStyle(Color.ink.opacity(0.45))
             if let action {
                 Button(action.0, action: action.1)
-                    .buttonStyle(PillButton(fill: .white.opacity(0.12), text: .white))
+                    .buttonStyle(PillButton(fill: Color.ink.opacity(0.12), text: .ink))
                     .padding(.top, 4)
             }
         }
@@ -335,7 +335,7 @@ struct ToastBar: View {
         HStack {
             Text(toast.text)
                 .font(.system(size: 12))
-                .foregroundStyle(.white.opacity(0.8))
+                .foregroundStyle(Color.ink.opacity(0.8))
                 .lineLimit(1)
             Spacer()
             Button("Undo") { model.undoLast() }
@@ -345,6 +345,6 @@ struct ToastBar: View {
         }
         .padding(.horizontal, 12)
         .frame(height: 30)
-        .background(RoundedRectangle(cornerRadius: 10).fill(.white.opacity(0.08)))
+        .background(RoundedRectangle(cornerRadius: 10).fill(Color.ink.opacity(0.08)))
     }
 }
