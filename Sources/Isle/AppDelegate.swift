@@ -14,8 +14,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         registerHotKey(keyCode: kVK_ANSI_T, modifiers: controlKey | optionKey) { [model] in model.hotKey() }
         clock = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [model] _ in model.tick() }
         model.tick()
-        if let dir = ProcessInfo.processInfo.environment["ISLE_SNAPSHOT"], let panel {
-            Snapshot.run(model: model, panel: panel, dir: URL(fileURLWithPath: dir))
+        let env = ProcessInfo.processInfo.environment
+        if let dir = env["ISLE_SNAPSHOT"], let panel {
+            Harness.snapshot(model: model, panel: panel, dir: URL(fileURLWithPath: dir))
+        }
+        if env["ISLE_SELFTEST"] != nil, let panel {
+            Harness.selfTest(model: model, panel: panel)
         }
     }
 }

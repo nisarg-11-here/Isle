@@ -34,6 +34,7 @@ final class IslandModel {
     @ObservationIgnored private var toastWork: DispatchWorkItem?
     @ObservationIgnored private var undoAction: (() -> Void)?
     @ObservationIgnored private var alerted = Set<UUID>()
+    @ObservationIgnored private var previousApp: NSRunningApplication?
 
     static let wing: CGFloat = 44
     static let openMaxHeight: CGFloat = 480
@@ -137,17 +138,30 @@ final class IslandModel {
         let wasOpen = mode == .open
         withAnimation(.island) { mode = new }
         if new == .open {
+            // A panel takes the keyboard only when the app is active. The hotkey is user input,
+            // so macOS lets us activate. Remember who had focus to hand it back on close.
+            previousApp = NSWorkspace.shared.frontmostApplication
+            NSApp.activate()
             panel?.makeKeyAndOrderFront(nil)
             focusRequest += 1
         } else if wasOpen {
             editing = nil
             scheduling = nil
-            // Give the keyboard back to the app the user was in.
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { [weak self] in
-                guard let self, let panel, panel.isKeyWindow, mode != .open else { return }
-                panel.orderOut(nil)
-                panel.orderFrontRegardless()
+                guard let self, mode != .open else { return }
+                giveBackKeyboard()
             }
+        }
+    }
+
+    /// Returns focus to the app the user was in before the island opened.
+    private func giveBackKeyboard() {
+        if NSApp.isActive, let previousApp, previousApp != .current {
+            NSApp.yieldActivation(to: previousApp)
+            previousApp.activate(options: [])
+        } else if let panel, panel.isKeyWindow {
+            panel.orderOut(nil)
+            panel.orderFrontRegardless()
         }
     }
 
