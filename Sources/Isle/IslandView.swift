@@ -15,7 +15,8 @@ struct IslandView: View {
         let shape = NotchShape(top: open ? 10 : 6, bottom: open ? 24 : closed ? 10 : 16)
         ZStack(alignment: .top) {
             if glass { GlassFill(shape: shape).transition(.opacity) }
-            Color.black.opacity(glass ? 0 : 1)
+            // 1 % on glass, not 0: a fully transparent pixel lets a click fall through the window.
+            Color.black.opacity(glass ? 0.01 : 1)
             content
         }
         .frame(width: size.width, height: size.height, alignment: .top)
@@ -29,6 +30,10 @@ struct IslandView: View {
         .gesture(TapGesture().onEnded { model.tap() }, including: open ? .subviews : .all)
         .contextMenu { IslandMenu() }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        // A click in the window but outside the island (the open shadow margin) closes it.
+        .background {
+            Color.clear.contentShape(Rectangle()).onTapGesture { if model.mode == .open { model.close() } }
+        }
         .environment(\.colorScheme, scheme(closed: closed))
         .tint(.isleOrange)
         .animation(.island, value: size)

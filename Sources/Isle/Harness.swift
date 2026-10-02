@@ -179,6 +179,12 @@ enum Harness {
             },
             {
                 expect(model.mode == .open, "Glass: a click on the peek opens the island")
+                model.bucket = .backlog
+            },
+            { type("glass task") },
+            {
+                expect(model.draft == "glass task", "Glass: typing goes to the add field")
+                model.draft = ""
                 model.close()
                 model.theme = .standard
                 print(failures == 0 ? "ALL PASS" : "\(failures) FAILED")
@@ -195,6 +201,10 @@ enum Harness {
         panel.ignoresMouseEvents = true
         panel.alphaValue = 0  // invisible: the layer still renders for snapshots
         model.isolated = true
+        // The test build shares the app's UserDefaults. Start every run from the defaults (not saved).
+        model.theme = .standard
+        model.glassLook = .system
+        model.reminderSound = true
         // A test run must never be the active app: the user's keys would land here.
         if NSApp.isActive { NSApp.deactivate() }
         NotificationCenter.default.addObserver(forName: NSApplication.didBecomeActiveNotification,

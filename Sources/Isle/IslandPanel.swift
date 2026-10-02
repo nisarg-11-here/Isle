@@ -21,6 +21,9 @@ final class IslandPanel: NSPanel {
         backgroundColor = .clear
         hasShadow = false
         isMovable = false
+        // Set on purpose. Left unset, the window server sends clicks on fully transparent pixels to
+        // the window below, and Liquid Glass leaves the island's own pixels transparent.
+        ignoresMouseEvents = false
         level = NSWindow.Level(rawValue: NSWindow.Level.mainMenu.rawValue + 3)
         collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary, .ignoresCycle]
 
