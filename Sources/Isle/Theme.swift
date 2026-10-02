@@ -56,6 +56,32 @@ struct NotchShape: Shape {
     }
 }
 
+/// Liquid Glass in the island shape (Apple: apply `glassEffect` after other appearance modifiers).
+/// Before macOS 26, a behind-window blur.
+struct GlassFill<S: Shape>: View {
+    let shape: S
+
+    var body: some View {
+        if #available(macOS 26.0, *) {
+            Color.clear.glassEffect(.regular, in: shape)
+        } else {
+            BehindWindowBlur().clipShape(shape)
+        }
+    }
+}
+
+struct BehindWindowBlur: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = .hudWindow
+        view.blendingMode = .behindWindow
+        view.state = .active
+        return view
+    }
+
+    func updateNSView(_ view: NSVisualEffectView, context: Context) {}
+}
+
 struct ProgressRing: View {
     let progress: DayProgress
     var lineWidth: CGFloat = 2.5

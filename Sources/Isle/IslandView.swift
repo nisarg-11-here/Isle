@@ -3,25 +3,42 @@ import SwiftUI
 
 struct IslandView: View {
     @Environment(IslandModel.self) private var model
+    /// The system's scheme, read before this view sets its own.
+    @Environment(\.colorScheme) private var systemScheme
 
     var body: some View {
         let size = model.islandSize
         let open = model.mode == .open
+        let closed = model.mode == .closed
+        // The closed island is black in every theme, so it still hides in the notch.
+        let glass = model.theme == .glass && !closed
+        let shape = NotchShape(top: open ? 10 : 6, bottom: open ? 24 : closed ? 10 : 16)
         ZStack(alignment: .top) {
-            Color.black
+            if glass { GlassFill(shape: shape).transition(.opacity) }
+            Color.black.opacity(glass ? 0 : 1)
             content
         }
         .frame(width: size.width, height: size.height, alignment: .top)
-        .clipShape(NotchShape(top: open ? 10 : 6, bottom: open ? 24 : model.mode == .closed ? 10 : 16))
-        .shadow(color: .black.opacity(open ? 0.5 : 0), radius: 18, y: 8)
+        .clipShape(shape)
+        .shadow(color: .black.opacity(open && !glass ? 0.5 : 0), radius: 18, y: 8)
         // A tap opens the island. Buttons inside (the alert's Done and Snooze) win over it.
         // When open, only the controls inside take taps.
         .gesture(TapGesture().onEnded { model.tap() }, including: open ? .subviews : .all)
         .contextMenu { IslandMenu() }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .environment(\.colorScheme, .dark)
+        .environment(\.colorScheme, scheme(closed: closed))
         .tint(.isleOrange)
         .animation(.island, value: size)
+    }
+
+    /// Black backgrounds need the dark scheme. Glass follows its look setting.
+    private func scheme(closed: Bool) -> ColorScheme {
+        guard model.theme == .glass, !closed else { return .dark }
+        switch model.glassLook {
+        case .system: return systemScheme
+        case .light: return .light
+        case .dark: return .dark
+        }
     }
 
     @ViewBuilder private var content: some View {

@@ -20,6 +20,14 @@ enum Harness {
                 model.set(.closed)
                 if let t = model.next { model.set(.alert(t.id)) }
             }),
+            ("9-glass-dark", {
+                model.set(.closed)
+                model.theme = .glass  // isolated: not saved
+                model.glassLook = .dark
+                model.bucket = .today
+                model.set(.open)
+            }),
+            ("10-glass-light", { model.glassLook = .light }),
         ]
         func step(_ i: Int) {
             guard i < steps.count else { return NSApp.terminate(nil) }
