@@ -3,13 +3,19 @@ import SwiftUI
 
 /// A borderless panel over the notch. Its frame follows the island, so it never
 /// blocks clicks on the menu bar beside it.
+///
+/// The SwiftUI canvas has one fixed size and is pinned to the top of the window. A window
+/// resize only clips it. If the canvas resized with the window, SwiftUI would lay out one
+/// frame late, and the island would jump down and snap back.
 final class IslandPanel: NSPanel {
     private let model: IslandModel
+    private let host: IslandHostingView
     private var screenRef: NSScreen?
     private var shrink: DispatchWorkItem?
 
     init(model: IslandModel) {
         self.model = model
+        host = IslandHostingView(rootView: AnyView(IslandView().environment(model)))
         super.init(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         isOpaque = false
         backgroundColor = .clear
@@ -18,9 +24,11 @@ final class IslandPanel: NSPanel {
         level = NSWindow.Level(rawValue: NSWindow.Level.mainMenu.rawValue + 3)
         collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary, .ignoresCycle]
 
-        let host = IslandHostingView(rootView: AnyView(IslandView().environment(model)))
         host.model = model
-        contentView = host
+        let container = FlippedView()
+        container.wantsLayer = true
+        container.addSubview(host)
+        contentView = container
         model.panel = self
 
         NotificationCenter.default.addObserver(self, selector: #selector(placeOnScreen),
@@ -49,6 +57,7 @@ final class IslandPanel: NSPanel {
         } else {
             model.notch = CGSize(width: 185, height: max(24, screen.frame.maxY - screen.visibleFrame.maxY))
         }
+        host.setFrameSize(model.canvasSize)
         applyFrame()
     }
 
@@ -69,20 +78,28 @@ final class IslandPanel: NSPanel {
         let current = frame.size
         shrink?.cancel()
         let grown = CGSize(width: max(target.width, current.width), height: max(target.height, current.height))
-        setFrame(rect(grown, on: screen), display: true)
+        resize(to: grown, on: screen)
         guard target.width < current.width || target.height < current.height else { return }
         let work = DispatchWorkItem { [weak self] in
             guard let self else { return }
-            setFrame(rect(target, on: screen), display: true)
+            resize(to: target, on: screen)
         }
         shrink = work
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: work)
     }
 
-    private func rect(_ size: CGSize, on screen: NSScreen) -> NSRect {
-        NSRect(x: screen.frame.midX - size.width / 2, y: screen.frame.maxY - size.height,
-               width: size.width, height: size.height)
+    /// Moves the window and re-centers the canvas in the same pass, so both land in one frame.
+    private func resize(to size: CGSize, on screen: NSScreen) {
+        setFrame(NSRect(x: screen.frame.midX - size.width / 2, y: screen.frame.maxY - size.height,
+                        width: size.width, height: size.height), display: false)
+        host.setFrameOrigin(NSPoint(x: (size.width - host.frame.width) / 2, y: 0))
+        displayIfNeeded()
     }
+}
+
+/// Top-left origin, so the canvas stays pinned to the top edge.
+private final class FlippedView: NSView {
+    override var isFlipped: Bool { true }
 }
 
 /// Hosts the SwiftUI island. Takes the first click without activating the app,

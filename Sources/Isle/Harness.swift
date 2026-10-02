@@ -6,7 +6,7 @@ enum Harness {
     /// `ISLE_SNAPSHOT=<dir>`: walks the panel through each state, saves a PNG of each, and quits.
     static func snapshot(model: IslandModel, panel: NSPanel, dir: URL) {
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        isolate(panel)
+        isolate(panel, model)
         let steps: [(String, () -> Void)] = [
             ("1-closed", { model.set(.closed) }),
             ("2-peek", { model.set(.peek) }),
@@ -35,7 +35,7 @@ enum Harness {
     /// `ISLE_SELFTEST=1`: sends real key events through AppKit, checks the result, and exits 0 or 1.
     /// Use it with `ISLE_DATA` pointing at a scratch file.
     static func selfTest(model: IslandModel, panel: NSPanel) {
-        isolate(panel)
+        isolate(panel, model)
         var failures = 0
         func expect(_ ok: Bool, _ what: String) {
             print(ok ? "PASS" : "FAIL", what)
@@ -85,6 +85,11 @@ enum Harness {
                 model.hover(true)
             },
             {
+                expect(model.mode == .closed, "a frozen island ignores hover")
+                model.frozen = false
+                model.hover(true)
+            },
+            {
                 expect(model.mode == .peek, "hover peeks")
                 model.hover(false)
             },
@@ -99,10 +104,10 @@ enum Harness {
         }
     }
 
-    /// The live pointer must not change the states, so drop its clicks and hover.
-    private static func isolate(_ panel: NSPanel) {
+    /// A live user must not change the states: drop their clicks, hover, and focus changes.
+    private static func isolate(_ panel: NSPanel, _ model: IslandModel) {
         panel.ignoresMouseEvents = true
-        (panel.contentView as? IslandHostingView)?.model = nil
+        model.frozen = true
     }
 
     private static func save(_ panel: NSPanel, to url: URL) {

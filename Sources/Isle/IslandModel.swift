@@ -29,6 +29,8 @@ final class IslandModel {
     private(set) var focusRequest = 0
 
     @ObservationIgnored weak var panel: NSPanel?
+    /// Set by the dev harness: hover and focus loss change nothing, so a live user cannot disturb a run.
+    @ObservationIgnored var frozen = false
     @ObservationIgnored private var hovering = false
     @ObservationIgnored private var pending: DispatchWorkItem?
     @ObservationIgnored private var toastWork: DispatchWorkItem?
@@ -69,6 +71,11 @@ final class IslandModel {
         }
     }
 
+    /// The largest window any mode needs. The SwiftUI canvas always has this size.
+    var canvasSize: CGSize {
+        CGSize(width: notch.width + 460 + 60, height: Self.openMaxHeight + 40)
+    }
+
     /// The panel leaves room for the shadow when open.
     var windowSize: CGSize {
         let s = islandSize
@@ -78,6 +85,7 @@ final class IslandModel {
     // MARK: Island
 
     func hover(_ inside: Bool) {
+        guard !frozen else { return }
         hovering = inside
         switch (inside, mode) {
         case (true, .closed):
@@ -129,7 +137,7 @@ final class IslandModel {
 
     /// The user clicked outside the island.
     func resignedKey() {
-        if mode == .open { close() }
+        if mode == .open && !frozen { close() }
     }
 
     func set(_ new: Mode) {
@@ -156,9 +164,12 @@ final class IslandModel {
 
     /// Returns focus to the app the user was in before the island opened.
     private func giveBackKeyboard() {
-        if NSApp.isActive, let previousApp, previousApp != .current {
-            NSApp.yieldActivation(to: previousApp)
-            previousApp.activate(options: [])
+        if NSApp.isActive {
+            if let previousApp, previousApp != .current {
+                NSApp.yieldActivation(to: previousApp)
+                if previousApp.activate(from: .current, options: []) { return }
+            }
+            NSApp.deactivate()
         } else if let panel, panel.isKeyWindow {
             panel.orderOut(nil)
             panel.orderFrontRegardless()
