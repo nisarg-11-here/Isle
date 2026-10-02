@@ -25,6 +25,11 @@ island drops down and asks if it is done.
 - **Rename in place.** Click a title to edit it. Return or a click elsewhere saves. Esc cancels.
 - **Reminders in the island.** At a task's time, the island expands with **Done** and **Snooze 10m**.
 - **Undo.** A delete, or a move that takes a task out of the list, shows a short undo bar.
+- **Two themes.** *Standard* is the black island. *Glass* uses Apple's Liquid Glass for the peek, the
+  open island, and reminders, in a System, Light, or Dark look. The closed island stays black in both,
+  so it still hides in the notch.
+- **Settings in the island.** Click the gear or press ⌘, to pick a theme, turn the reminder sound on or
+  off, and start Isle at login.
 - **Local and private.** Tasks stay in one JSON file on your Mac. No account, no network.
 
 | Closed | Peek | Reminder |
@@ -59,7 +64,8 @@ Isle reads only the **last words** of a task, so "Monday night football" stays a
 | ⌃⌥T | Open the island with the add field focused. Press again to close. |
 | Return | Add the task. |
 | ⌘1 / ⌘2 / ⌘3 | Today / Upcoming / Backlog |
-| Esc | Cancel the edit, clear the field, then close. |
+| ⌘, | Settings |
+| Esc | Leave settings, cancel the edit, clear the field, then close. |
 | Right-click | Launch at Login, Show Data File, Quit. |
 
 ## Install
@@ -93,6 +99,8 @@ Sources/
     IslandView.swift   island shape, wings, peek, reminder
     OpenView.swift     tabs, add field, lists
     TaskRow.swift      rows and the schedule editor
+    SettingsView.swift themes, glass look, sound, launch at login
+    Settings.swift     theme and settings types
     Harness.swift      snapshot and self-test modes for development
 ```
 
@@ -104,6 +112,12 @@ Some details that took more than one try:
   jump.
 - **Focus.** A click reaches the non-activating panel without taking focus from your app. Only the
   hotkey activates Isle, and closing hands focus back to the app you were in.
+- **One palette for black and glass.** Every view draws with `Color.ink`: white in the dark scheme, black
+  in the light one. `Color.primary` would not do, because it is the label color at 85 % opacity and would
+  dim the Standard theme. A pixel diff proved Standard did not change.
+- **Liquid Glass.** Glass uses `glassEffect(.regular, in: NotchShape)` on macOS 26, after Apple's
+  "Applying Liquid Glass to custom views", and a behind-window blur before macOS 26. The Glass theme tile
+  uses a material, not glass, because Apple advises against glass on glass.
 - **Floating days.** A task stores its day as a local `yyyy-MM-dd` key and its time as minutes after
   midnight. 5 PM stays 5 PM when you change time zones.
 - **Safe storage.** Isle saves after every change with an atomic write, so a crash cannot leave half a
