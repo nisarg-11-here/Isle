@@ -6,6 +6,7 @@ enum Harness {
     /// `ISLE_SNAPSHOT=<dir>`: walks the panel through each state, saves a PNG of each, and quits.
     static func snapshot(model: IslandModel, panel: NSPanel, dir: URL) {
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        isolate(panel)
         let steps: [(String, () -> Void)] = [
             ("1-closed", { model.set(.closed) }),
             ("2-peek", { model.set(.peek) }),
@@ -34,6 +35,7 @@ enum Harness {
     /// `ISLE_SELFTEST=1`: sends real key events through AppKit, checks the result, and exits 0 or 1.
     /// Use it with `ISLE_DATA` pointing at a scratch file.
     static func selfTest(model: IslandModel, panel: NSPanel) {
+        isolate(panel)
         var failures = 0
         func expect(_ ok: Bool, _ what: String) {
             print(ok ? "PASS" : "FAIL", what)
@@ -95,6 +97,12 @@ enum Harness {
         for (i, step) in steps.enumerated() {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.8 * Double(i + 1), execute: step)
         }
+    }
+
+    /// The live pointer must not change the states, so drop its clicks and hover.
+    private static func isolate(_ panel: NSPanel) {
+        panel.ignoresMouseEvents = true
+        (panel.contentView as? IslandHostingView)?.model = nil
     }
 
     private static func save(_ panel: NSPanel, to url: URL) {

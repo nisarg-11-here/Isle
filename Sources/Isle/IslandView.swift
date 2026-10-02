@@ -20,6 +20,7 @@ struct IslandView: View {
         .contextMenu { IslandMenu() }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .environment(\.colorScheme, .dark)
+        .tint(.isleOrange)
         .animation(.island, value: size)
     }
 
