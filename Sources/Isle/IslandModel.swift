@@ -26,6 +26,8 @@ final class IslandModel {
     var draft = ""
     var editing: UUID?
     var scheduling: UUID?
+    /// The task whose note editor is open under its row.
+    var noting: UUID?
     private(set) var toast: Toast?
     /// Goes up by one each time the add field must take focus.
     private(set) var focusRequest = 0
@@ -156,7 +158,8 @@ final class IslandModel {
 
     /// Nothing typed, nothing in edit, and no plan page, so the island may close by itself.
     private var isIdle: Bool {
-        draft.isEmpty && editing == nil && scheduling == nil && page != .plan && shownNote == nil && noteQuery.isEmpty
+        draft.isEmpty && editing == nil && scheduling == nil && noting == nil && page != .plan
+            && shownNote == nil && noteQuery.isEmpty
     }
 
     func tap() {
@@ -185,7 +188,7 @@ final class IslandModel {
     }
 
     func escape() {
-        if editing != nil || scheduling != nil {
+        if editing != nil || scheduling != nil || noting != nil {
             endEditing()
         } else if page == .settings {
             toggleSettings()
@@ -215,10 +218,27 @@ final class IslandModel {
     /// Ends a rename or a schedule edit. The row saves its rename when `editing` clears.
     /// The keyboard goes back to the add field.
     func endEditing() {
-        guard editing != nil || scheduling != nil else { return }
+        guard editing != nil || scheduling != nil || noting != nil else { return }
         editing = nil
-        withAnimation(.snappy) { scheduling = nil }
+        withAnimation(.snappy) {
+            scheduling = nil
+            noting = nil
+        }
         focusRequest += 1
+    }
+
+    /// Opens a task's note under its row, or closes it. One editor at a time.
+    func toggleNote(_ todo: Todo) {
+        if noting == todo.id { return endEditing() }
+        // Not `endEditing()`: it hands the keyboard to the add field.
+        editing = nil
+        withAnimation(.snappy) {
+            scheduling = nil
+            noting = todo.id
+        }
+        // After the change: the add field lets go, or SwiftUI, which still thinks it has focus, takes the
+        // keyboard back from the note. (Before the change, the redraw this starts saw no note to show.)
+        panel?.makeFirstResponder(nil)
     }
 
     func set(_ new: Mode) {
@@ -236,6 +256,7 @@ final class IslandModel {
         if wasOpen {
             editing = nil
             scheduling = nil
+            noting = nil
             closeNote()
         }
         // At once, so no key typed after Esc or after a click on an alert button is lost.

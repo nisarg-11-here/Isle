@@ -14,6 +14,8 @@ struct TaskRow: View {
 
     private var done: Bool { todo.isDone || checking }
     private var editing: Bool { model.editing == todo.id }
+    // ponytail: one search of the notes per row; pass `taskIDsWithNotes` down if lists grow long.
+    private var hasNote: Bool { model.notes.taskNote(todo.id) != nil }
 
     var body: some View {
         VStack(spacing: 4) {
@@ -33,6 +35,9 @@ struct TaskRow: View {
             if model.scheduling == todo.id {
                 ScheduleEditor(todo: todo).transition(.opacity.combined(with: .move(edge: .top)))
             }
+            if model.noting == todo.id {
+                TaskNoteEditor(todo: todo).transition(.opacity.combined(with: .move(edge: .top)))
+            }
         }
         // Save the rename when it ends: Return, a click elsewhere, or a click on another title.
         .onChange(of: editing) { was, isEditing in
@@ -43,6 +48,7 @@ struct TaskRow: View {
             Button("Tomorrow") { model.setDay(todo, Day.adding(1, to: model.today)) }
             Button("Backlog") { model.setDay(todo, nil) }
             Divider()
+            Button(hasNote ? "Edit Note" : "Add Note") { model.toggleNote(todo) }
             Button("Delete", role: .destructive) { model.delete(todo) }
         }
     }
@@ -69,7 +75,16 @@ struct TaskRow: View {
                 .strikethrough(done, color: Color.ink.opacity(0.4))
                 .foregroundStyle(Color.ink.opacity(done ? 0.35 : 0.92))
                 .lineLimit(1)
-                .onTapGesture { model.editing = todo.id }
+                .onTapGesture {
+                    model.noting = nil
+                    model.editing = todo.id
+                }
+            if hasNote {
+                Image(systemName: "note.text")
+                    .font(.system(size: 10))
+                    .foregroundStyle(Color.ink.opacity(0.4))
+                    .help("Has a note")
+            }
         }
     }
 
@@ -93,8 +108,12 @@ struct TaskRow: View {
             if todo.day != model.today && !todo.isDone {
                 IconButton(icon: "sun.max", help: "Move to Today") { model.setDay(todo, model.today) }
             }
+            IconButton(icon: "note.text", help: "Note") { model.toggleNote(todo) }
             IconButton(icon: "calendar.badge.clock", help: "Schedule") {
-                withAnimation(.snappy) { model.scheduling = model.scheduling == todo.id ? nil : todo.id }
+                withAnimation(.snappy) {
+                    model.noting = nil
+                    model.scheduling = model.scheduling == todo.id ? nil : todo.id
+                }
             }
             IconButton(icon: "trash", help: "Delete", tint: .isleRed) { model.delete(todo) }
         }
@@ -151,5 +170,28 @@ struct ScheduleEditor: View {
         } else {
             bad = true
         }
+    }
+}
+
+/// A note under a task row. Each change saves at once, like every note.
+struct TaskNoteEditor: View {
+    @Environment(IslandModel.self) private var model
+    let todo: Todo
+
+    var body: some View {
+        HStack(alignment: .bottom, spacing: 8) {
+            NoteTextView(text: Binding(get: { model.notes.taskNote(todo.id)?.text ?? "" },
+                                       set: { model.notes.setTaskNote(todo.id, $0) }),
+                         takesFocus: true, onEscape: { model.escape() })
+                .frame(height: 64)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 5)
+                .background(RoundedRectangle(cornerRadius: 8).fill(Color.ink.opacity(0.06)))
+            Button("Done") { model.endEditing() }
+                .buttonStyle(PillButton(fill: .ink, text: .inkInverse))
+        }
+        .padding(10)
+        .background(RoundedRectangle(cornerRadius: 12).fill(Color.ink.opacity(0.05)))
+        .padding(.leading, 28)
     }
 }

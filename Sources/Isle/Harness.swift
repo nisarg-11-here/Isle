@@ -407,6 +407,20 @@ enum Harness {
             {
                 expect(model.page == .tasks && model.planLines == ["call mom"], "Esc in the day note leaves the plan page")
                 model.planLines = [""]
+                model.store.add("email prof", day: model.today, minute: nil)
+            },
+            { if let task = model.store.todos.first(where: { $0.title == "email prof" }) { model.toggleNote(task) } },
+            { type("Ask for 2 days") },
+            { key(esc, 53) },
+            {
+                let task = model.store.todos.first { $0.title == "email prof" }
+                expect(model.noting == nil && task.flatMap { model.notes.taskNote($0.id)?.text } == "Ask for 2 days",
+                       "a task note saves on Esc")
+                if let task { model.delete(task) }
+                model.undoLast()
+                let back = model.store.todos.first { $0.title == "email prof" }
+                expect(back != nil && back.flatMap { model.notes.taskNote($0.id)?.text } == "Ask for 2 days",
+                       "a task note survives delete and Undo")
                 model.close()
                 print(failures == 0 ? "ALL PASS" : "\(failures) FAILED")
                 exit(failures == 0 ? 0 : 1)
