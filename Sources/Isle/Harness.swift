@@ -43,6 +43,16 @@ enum Harness {
                 model.page = .plan
                 model.planLines = ["finish A1 phase 2", "- call mom 6pm", "dentist fri 3pm", ""]
             }),
+            ("15-morning", {
+                model.planLines = [""]
+                model.page = .tasks
+                model.set(.closed)
+                model.set(.morning)
+            }),
+            ("16-plan-setting", {
+                model.set(.open)
+                model.page = .settings
+            }),
         ]
         func step(_ i: Int) {
             guard i < steps.count else { return NSApp.terminate(nil) }
@@ -90,6 +100,7 @@ enum Harness {
         }
         /// An empty spot in the lower left of the island, away from any text.
         func emptySpot() -> NSPoint { NSPoint(x: panel.frame.width * 0.12, y: panel.frame.height * 0.3) }
+        func nineToday() -> Date { Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: Date())! }
         let esc = "\u{1b}"
         let steps: [() -> Void] = [
             { model.hotKey() },
@@ -255,6 +266,20 @@ enum Harness {
                 expect(model.planLines[0].hasSuffix("!") && model.planLines[1] == "two", "↑ moves to the line above")
                 model.planLines = [""]
                 model.close()
+                expect(model.planAskedDay == model.today, "an added plan counts as asked for today")
+                model.planAskedDay = nil  // isolated: not saved
+                // A fixed 9 AM, so the check does not depend on when the test runs.
+                let saved = UserDefaults.standard.string(forKey: "planAskedDay")
+                expect(model.askToPlan(now: nineToday(), idleSeconds: 0) && model.mode == .morning,
+                       "the morning question shows")
+                expect(UserDefaults.standard.string(forKey: "planAskedDay") == saved,
+                       "an isolated run does not save planAskedDay")
+                model.tap()
+            },
+            {
+                expect(model.mode == .open && model.page == .plan, "a tap on the question opens the plan page")
+                model.close()
+                expect(!model.askToPlan(now: nineToday(), idleSeconds: 0), "the question shows once a day")
                 print(failures == 0 ? "ALL PASS" : "\(failures) FAILED")
                 exit(failures == 0 ? 0 : 1)
             },
@@ -273,6 +298,8 @@ enum Harness {
         model.theme = .standard
         model.glassLook = .system
         model.reminderSound = true
+        model.morningPlan = true
+        model.planAskedDay = nil
         // A test run must never be the active app: the user's keys would land here.
         if NSApp.isActive { NSApp.deactivate() }
         NotificationCenter.default.addObserver(forName: NSApplication.didBecomeActiveNotification,

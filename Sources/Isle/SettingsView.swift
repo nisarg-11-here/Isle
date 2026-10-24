@@ -29,6 +29,7 @@ struct SettingsView: View {
             }
             Separator()
             SettingRow("Reminder sound") { Switch(isOn: $model.reminderSound) }
+            SettingRow("Morning plan") { Switch(isOn: $model.morningPlan) }
             SettingRow("Launch at login") {
                 Switch(isOn: $launchAtLogin)
                     .onChange(of: launchAtLogin) { _, on in
@@ -41,7 +42,7 @@ struct SettingsView: View {
             }
             Separator()
             HStack {
-                Text("⌃⌥T opens Isle from anywhere · ⌘, settings")
+                Text("⌃⌥T opens Isle from anywhere · ⌘P plan · ⌘, settings")
                     .font(.system(size: 11))
                     .foregroundStyle(Color.ink.opacity(0.45))
                 Spacer()

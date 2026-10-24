@@ -1,9 +1,10 @@
 import AppKit
+import CoreGraphics
 import IsleCore
 import SwiftUI
 
 enum Mode: Equatable {
-    case closed, peek, open, alert(UUID)
+    case closed, peek, open, alert(UUID), morning
 }
 
 /// A short message with an undo action at the bottom of the open island.
@@ -45,6 +46,9 @@ final class IslandModel {
     /// The day the morning question showed or a plan was added, so the question comes once a day.
     var planAskedDay = UserDefaults.standard.string(forKey: "planAskedDay") {
         didSet { remember(planAskedDay ?? "", "planAskedDay") }
+    }
+    var morningPlan = UserDefaults.standard.object(forKey: "morningPlan") as? Bool ?? true {
+        didSet { remember(morningPlan, "morningPlan") }
     }
 
     /// A harness run shares the app's UserDefaults, so an isolated island never writes them.
@@ -97,7 +101,7 @@ final class IslandModel {
             CGSize(width: notch.width + 200, height: notch.height + 30)
         case .open:
             CGSize(width: notch.width + 460, height: min(openHeight, Self.openMaxHeight))
-        case .alert:
+        case .alert, .morning:
             CGSize(width: max(notch.width + 260, 440), height: notch.height + 54)
         }
     }
@@ -134,7 +138,7 @@ final class IslandModel {
                 guard let self, !hovering, isIdle else { return }
                 set(.closed)
             }
-        case (false, .alert):
+        case (false, .alert), (false, .morning):
             after(4) { [weak self] in self?.set(.closed) }
         default:
             break
@@ -145,6 +149,7 @@ final class IslandModel {
     private var isIdle: Bool { draft.isEmpty && editing == nil && scheduling == nil && page != .plan }
 
     func tap() {
+        if mode == .morning { return openPlan() }
         if mode != .open { open() }
     }
 
@@ -248,8 +253,12 @@ final class IslandModel {
 
     func tick() {
         now = Date()
-        guard mode == .closed || mode == .peek,
-              let due = store.todos.dueNow(now).first(where: { !alerted.contains($0.id) }) else { return }
+        guard mode == .closed || mode == .peek else { return }
+        guard let due = store.todos.dueNow(now).first(where: { !alerted.contains($0.id) }) else {
+            // A harness run never asks: it calls `askToPlan` with a fixed time instead.
+            if !isolated { askToPlan(now: now, idleSeconds: secondsSinceInput()) }
+            return
+        }
         alerted.insert(due.id)
         set(.alert(due.id))
         if !isolated {
@@ -257,6 +266,25 @@ final class IslandModel {
             if reminderSound { NSSound(named: "Glass")?.play() }
         }
         after(12) { [weak self] in self?.set(.closed) }
+    }
+
+    /// The morning question: once a day, when the island is quiet and the user is at the Mac.
+    /// A due reminder wins, because `tick` checks for one first.
+    @discardableResult
+    func askToPlan(now: Date, idleSeconds: Double) -> Bool {
+        guard morningPlan, mode == .closed || mode == .peek,
+              Morning.shouldAsk(now: now, askedDay: planAskedDay, idleSeconds: idleSeconds) else { return false }
+        planAskedDay = Day.key(now)
+        set(.morning)
+        if !isolated { haptic() }
+        after(20) { [weak self] in self?.set(.closed) }
+        return true
+    }
+
+    /// Seconds since the last key or mouse input in any app. It needs no permission.
+    private func secondsSinceInput() -> Double {
+        // `~0` is `kCGAnyInputEventType`, which Swift does not import.
+        CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: CGEventType(rawValue: ~0)!)
     }
 
     func alertDone(_ todo: Todo) {

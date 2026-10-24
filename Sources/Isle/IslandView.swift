@@ -53,6 +53,7 @@ struct IslandView: View {
         case .peek: PeekView().transition(.blurReplace)
         case .open: OpenView().transition(.blurReplace)
         case .alert: AlertView().transition(.blurReplace)
+        case .morning: MorningView().transition(.blurReplace)
         }
     }
 }
@@ -168,6 +169,40 @@ struct AlertView: View {
                 .frame(height: 50)
             }
             .onAppear { ring = true }
+        }
+    }
+}
+
+/// Once a day: asks the user to plan the day. A click anywhere but Later opens the plan page.
+struct MorningView: View {
+    @Environment(IslandModel.self) private var model
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Image(systemName: "sun.max.fill")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Color.isleOrange)
+                Spacer(minLength: model.notch.width)
+                Text(model.now.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()))
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Color.ink.opacity(0.6))
+            }
+            .padding(.horizontal, 20)
+            .frame(height: model.notch.height)
+            HStack(spacing: 8) {
+                Text("\(Morning.greeting(model.now)). Plan your \(model.now.formatted(.dateTime.weekday(.wide)))?")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Color.ink)
+                    .lineLimit(1)
+                Spacer(minLength: 8)
+                Button("Later") { model.close() }
+                    .buttonStyle(PillButton(fill: Color.ink.opacity(0.14), text: .ink))
+                Button("Plan") { model.openPlan() }
+                    .buttonStyle(PillButton(fill: .isleGreen, text: .black))
+            }
+            .padding(.horizontal, 20)
+            .frame(height: 50)
         }
     }
 }
