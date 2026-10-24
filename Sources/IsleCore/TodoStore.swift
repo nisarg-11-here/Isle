@@ -5,7 +5,7 @@ import Observation
 @Observable
 public final class TodoStore {
     public private(set) var todos: [Todo] = []
-    private let url: URL
+    private let file: JSONFile<[Todo]>
 
     public static var defaultURL: URL {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -13,7 +13,7 @@ public final class TodoStore {
     }
 
     public init(url: URL) {
-        self.url = url
+        file = JSONFile(url: url)
         load()
     }
 
@@ -84,42 +84,10 @@ public final class TodoStore {
     }
 
     private func load() {
-        guard FileManager.default.fileExists(atPath: url.path) else { return }
-        do {
-            let data = try Data(contentsOf: url)
-            todos = try Self.decoder.decode([Todo].self, from: data)
-            // One rolling copy of the last file that loaded, so a bad change can be undone by hand.
-            let backup = url.deletingLastPathComponent()
-                .appendingPathComponent(url.deletingPathExtension().lastPathComponent + ".backup.json")
-            try? data.write(to: backup, options: .atomic)
-        } catch {
-            // Keep the unreadable file. A save must never overwrite the user's data.
-            let backup = url.deletingLastPathComponent()
-                .appendingPathComponent("todos.corrupt-\(Int(Date().timeIntervalSince1970)).json")
-            try? FileManager.default.moveItem(at: url, to: backup)
-            NSLog("Isle: could not read \(url.path) (\(error)). Moved it to \(backup.lastPathComponent).")
-        }
+        todos = file.load() ?? []
     }
 
     private func save() {
-        do {
-            try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-            try Self.encoder.encode(todos).write(to: url, options: .atomic)
-        } catch {
-            NSLog("Isle: could not save \(url.path): \(error)")
-        }
+        file.save(todos)
     }
-
-    private static let encoder: JSONEncoder = {
-        let e = JSONEncoder()
-        e.outputFormatting = [.prettyPrinted, .sortedKeys]
-        e.dateEncodingStrategy = .iso8601
-        return e
-    }()
-
-    private static let decoder: JSONDecoder = {
-        let d = JSONDecoder()
-        d.dateDecodingStrategy = .iso8601
-        return d
-    }()
 }

@@ -77,3 +77,36 @@ private func tempDir() -> URL {
     #expect(Set(removed.map(\.title)) == ["x", "y"])
     #expect(TodoStore(url: url).todos.map(\.title) == ["z"])
 }
+
+private func permissions(_ url: URL) throws -> Int {
+    try (FileManager.default.attributesOfItem(atPath: url.path)[.posixPermissions] as? NSNumber)?.intValue ?? -1
+}
+
+@Test func savedFilesAreOwnerOnly() throws {
+    let dir = tempDir()
+    let url = dir.appendingPathComponent("todos.json")
+    TodoStore(url: url).add("secret", day: nil, minute: nil)
+    _ = TodoStore(url: url)  // a relaunch writes the backup
+    #expect(try permissions(url) == 0o600)
+    #expect(try permissions(dir.appendingPathComponent("todos.backup.json")) == 0o600)
+    #expect(try permissions(dir) == 0o700)  // the store made this folder
+}
+
+@Test func anExistingFolderKeepsItsPermissions() throws {
+    let dir = tempDir()
+    try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true,
+                                            attributes: [.posixPermissions: 0o755])
+    TodoStore(url: dir.appendingPathComponent("t.json")).add("x", day: nil, minute: nil)
+    #expect(try permissions(dir) == 0o755)
+}
+
+@Test func aCorruptFileOfAnyNameIsKeptAside() throws {
+    let dir = tempDir()
+    try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    let url = dir.appendingPathComponent("notes.json")
+    try Data("{".utf8).write(to: url)
+    #expect(JSONFile<[Todo]>(url: url).load() == nil)
+    let files = try FileManager.default.contentsOfDirectory(atPath: dir.path)
+    #expect(files.contains { $0.hasPrefix("notes.corrupt-") })
+    #expect(!files.contains("notes.json"))
+}
