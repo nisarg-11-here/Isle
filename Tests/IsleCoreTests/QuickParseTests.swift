@@ -103,3 +103,21 @@ private func p(_ s: String) -> Parsed { QuickParse.parse(s, now: now, calendar: 
     #expect(QuickParse.phrase(day: "2026-10-03", minute: nil, now: now, calendar: cal) == "tomorrow")
     #expect(QuickParse.phrase(day: nil, minute: nil, now: now, calendar: cal) == "")
 }
+
+private func lines(_ l: [String]) -> [Parsed] { QuickParse.planLines(l, now: now, calendar: cal) }
+
+@Test func planLinesMakeOneTaskPerLineInOrder() {
+    #expect(lines(["finish A1 phase 2", "", "   ", "call mom 6pm", "dentist fri 3pm"]) == [
+        Parsed(title: "finish A1 phase 2", day: "2026-10-02"),
+        Parsed(title: "call mom", day: "2026-10-02", minute: 1080),
+        Parsed(title: "dentist", day: "2026-10-09", minute: 900),
+    ])
+    #expect(lines(["Monday night football"]) == [Parsed(title: "Monday night football", day: "2026-10-02")])
+}
+
+@Test func planLinesDropOneListMarker() {
+    let titles = lines(["- a", "* b", "• c", "1. d", "2) e", "[ ] f", "[] g", "-", "- ", "  - h",
+                        "3.5 hours study", "-5 degrees", "- - i"]).map(\.title)
+    #expect(titles == ["a", "b", "c", "d", "e", "f", "g", "h", "3.5 hours study", "-5 degrees", "- i"])
+    #expect(lines(["- call mom 6pm"]) == [Parsed(title: "call mom", day: "2026-10-02", minute: 1080)])
+}

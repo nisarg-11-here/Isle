@@ -49,6 +49,16 @@ public enum QuickParse {
         return p
     }
 
+    /// A day plan: one task for each line that has a title, in order, as if typed on Today.
+    public static func planLines(_ lines: [String], now: Date, calendar cal: Calendar = .current) -> [Parsed] {
+        lines.map { plan(dropMarker($0), bucket: .today, now: now, calendar: cal) }.filter { !$0.title.isEmpty }
+    }
+
+    /// Removes one list marker that people type from habit: "- ", "* ", "• ", "1. ", "2) ", "[ ] ".
+    static func dropMarker(_ line: String) -> String {
+        line.replacing(#/^\s*(?:[-*•]|\d{1,3}[.)]|\[\s?\])(?:\s+|$)/#, with: "", maxReplacements: 1)
+    }
+
     /// The words that `parse` reads back as `day` and `minute`, like "tomorrow 5:30pm".
     /// A chip writes them into the add field, so the field always shows what the task will get.
     public static func phrase(day: String?, minute: Int?, now: Date, calendar cal: Calendar = .current) -> String {
