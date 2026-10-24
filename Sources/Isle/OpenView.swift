@@ -31,11 +31,12 @@ struct OpenView: View {
             case .tasks:
                 AddField()
                 TaskList()
-                if let toast = model.toast {
-                    ToastBar(toast: toast).transition(.move(edge: .bottom).combined(with: .opacity))
-                }
             case .settings: SettingsView().transition(.opacity)
             case .plan: PlanView().transition(.opacity)
+            }
+            // The plan page lists tasks too ("Already on Today"), so its deletes and moves need the undo bar.
+            if let toast = model.toast, model.page != .settings {
+                ToastBar(toast: toast).transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
         .padding(.horizontal, 20)

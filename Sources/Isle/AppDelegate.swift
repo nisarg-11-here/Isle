@@ -10,10 +10,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var clock: Timer?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        NSApp.mainMenu = Self.editMenu()
         panel = IslandPanel(model: model)
         registerHotKey(keyCode: kVK_ANSI_T, modifiers: controlKey | optionKey) { [model] in model.hotKey() }
-        clock = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [model] _ in model.tick() }
-        model.tick()
         let env = ProcessInfo.processInfo.environment
         if let dir = env["ISLE_SNAPSHOT"], let panel {
             Harness.snapshot(model: model, panel: panel, dir: URL(fileURLWithPath: dir))
@@ -26,6 +25,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             Harness.selfTest(model: model, panel: panel)
         }
+        // After the harness, so a test run is isolated before the first tick can ask or write a setting.
+        model.tick()
+        // A harness run calls `tick` itself. A clock would redraw the island at random moments in a run.
+        if env["ISLE_SNAPSHOT"] == nil && env["ISLE_SELFTEST"] == nil {
+            clock = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [model] _ in model.tick() }
+        }
+    }
+
+    /// An accessory app shows no menu bar, but its menu still gives text fields the standard keys.
+    /// Without it, ⌘Z, ⌘X, ⌘C, ⌘V, and ⌘A do nothing in Isle.
+    private static func editMenu() -> NSMenu {
+        let edit = NSMenu(title: "Edit")
+        edit.addItem(withTitle: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
+        edit.addItem(withTitle: "Redo", action: Selector(("redo:")), keyEquivalent: "z").keyEquivalentModifierMask = [.command, .shift]
+        edit.addItem(.separator())
+        edit.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        edit.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        edit.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        edit.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        let menu = NSMenu()
+        menu.addItem(NSMenuItem())  // the app menu's place: AppKit treats the first item as the app menu
+        let item = NSMenuItem()
+        item.submenu = edit
+        menu.addItem(item)
+        return menu
     }
 }
 

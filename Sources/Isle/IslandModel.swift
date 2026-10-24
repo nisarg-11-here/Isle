@@ -174,12 +174,12 @@ final class IslandModel {
     }
 
     func escape() {
-        if page == .settings {
+        if editing != nil || scheduling != nil {
+            endEditing()
+        } else if page == .settings {
             toggleSettings()
         } else if page == .plan {
             togglePlan()
-        } else if editing != nil || scheduling != nil {
-            endEditing()
         } else if !draft.isEmpty {
             draft = ""
         } else {
@@ -406,6 +406,7 @@ final class IslandModel {
     /// The plan button and ⌘P: the plan page, or back to the tasks from it.
     func togglePlan() {
         if page == .plan {
+            endEditing()  // a rename or schedule edit in "Already on Today" must not stay open on the list
             withAnimation(.snappy) { page = .tasks }
         } else {
             openPlan()

@@ -34,6 +34,9 @@ struct IslandView: View {
         .environment(\.colorScheme, scheme)
         .tint(.isleOrange)
         .animation(.island, value: size)
+        // The hidden harness panel never runs animations, so a transition would never end and leave views
+        // half inserted or half removed. A test run applies every change at once.
+        .transaction { if model.isolated { $0.disablesAnimations = true } }
     }
 
     /// Standard is black, so dark. Glass follows its look setting. The closed island sets dark itself,

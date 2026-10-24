@@ -43,6 +43,9 @@ enum Harness {
                 model.page = .plan
                 model.planLines = ["finish A1 phase 2", "- call mom 6pm", "dentist fri 3pm", ""]
             }),
+            ("14-plan-undo", {
+                if let laundry = model.store.todos.first(where: { $0.title == "Laundry" }) { model.delete(laundry) }
+            }),
             ("15-morning", {
                 model.planLines = [""]
                 model.page = .tasks
@@ -69,6 +72,7 @@ enum Harness {
     /// Use it with `ISLE_DATA` pointing at a scratch file.
     static func selfTest(model: IslandModel, panel: NSPanel) {
         isolate(panel, model)
+        let askedAtStart = UserDefaults.standard.string(forKey: "planAskedDay")
         var failures = 0
         func expect(_ ok: Bool, _ what: String) {
             print(ok ? "PASS" : "FAIL", what)
@@ -81,6 +85,10 @@ enum Harness {
             NSApp.sendEvent(e)
         }
         func type(_ text: String) { text.forEach { key(String($0), 0) } }
+        let up = String(UnicodeScalar(NSUpArrowFunctionKey)!), down = String(UnicodeScalar(NSDownArrowFunctionKey)!)
+        let backspace = "\u{7F}"
+        /// The window's text editor, where typed keys land.
+        func editor() -> NSTextView? { panel.firstResponder as? NSTextView }
         /// A ⌘ key equivalent, the way AppKit offers it to the window before any view sees the key.
         func shortcut(_ chars: String, _ code: UInt16) {
             guard let e = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: .command, timestamp: 0,
@@ -103,6 +111,7 @@ enum Harness {
         func nineToday() -> Date { Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: Date())! }
         let esc = "\u{1b}"
         let steps: [() -> Void] = [
+            {},  // the panel's first draw after launch
             { model.hotKey() },
             {
                 expect(model.mode == .open, "hotkey opens the island")
@@ -214,6 +223,7 @@ enum Harness {
                 model.theme = .standard
                 model.open()
             },
+            {},  // the theme change and the open draw the header first; its ⌘P exists only then
             { shortcut("p", 35) },
             {
                 expect(model.page == .plan, "⌘P opens the plan page")
@@ -259,27 +269,69 @@ enum Harness {
             },
             {
                 expect(model.planLines == ["one", "two"], "Delete on an empty line removes it")
-                key(String(UnicodeScalar(NSUpArrowFunctionKey)!), 126)
+                type("X")
+            },
+            {
+                expect(model.planLines == ["one", "twoX"], "Delete puts the caret at the end of the line above")
+                key(up, 126)
             },
             { type("!") },
             {
-                expect(model.planLines[0].hasSuffix("!") && model.planLines[1] == "two", "↑ moves to the line above")
+                expect(model.planLines == ["one!", "twoX"], "↑ moves to the end of the line above")
+                key(down, 125)
+            },
+            { key("\r", 36) },
+            {
+                expect(model.planLines == ["one!", "twoX", ""], "↓ then Return adds a line under the second")
+                // An input method composing on the empty line owns the Delete key.
+                editor()?.setMarkedText("か", selectedRange: NSRange(location: 1, length: 0),
+                                        replacementRange: NSRange(location: NSNotFound, length: 0))
+                key(backspace, 51)
+            },
+            {
+                expect(model.planLines.count == 3, "Delete while an input method composes keeps the line")
+                editor()?.unmarkText()
+                editor()?.string = ""
+            },
+            {
+                // A real paste through the field, from a private pasteboard, so the user's clipboard stays.
+                let board = NSPasteboard(name: NSPasteboard.Name("isle-selftest-\(UUID().uuidString)"))
+                board.clearContents()
+                board.setString("p\r\nq\nr", forType: .string)
+                _ = editor()?.readSelection(from: board)
+                board.releaseGlobally()
+                expect(model.planLines == ["one!", "twoX", "p", "q", "r"], "a paste through the field splits into lines")
+                let edit = NSApp.mainMenu?.items.first { $0.submenu?.title == "Edit" }?.submenu
+                let wanted: [(Selector, String)] = [(Selector(("undo:")), "z"), (#selector(NSText.cut(_:)), "x"),
+                                                   (#selector(NSText.copy(_:)), "c"), (#selector(NSText.paste(_:)), "v"),
+                                                   (#selector(NSText.selectAll(_:)), "a")]
+                expect(wanted.allSatisfy { action, key in
+                    edit?.items.contains { $0.action == action && $0.keyEquivalent == key } == true
+                }, "the Edit menu gives ⌘Z ⌘X ⌘C ⌘V ⌘A")
+                // Esc first closes an open editor on the plan page, then leaves the page.
+                model.scheduling = model.store.todos.first { $0.title == "groceries" }?.id
+                key(esc, 53)
+            },
+            {
+                expect(model.scheduling == nil && model.page == .plan, "Esc on the plan page first closes an editor")
+                model.scheduling = model.store.todos.first { $0.title == "groceries" }?.id
+                model.togglePlan()
+                expect(model.scheduling == nil && model.page == .tasks, "leaving the plan page ends an edit")
                 model.planLines = [""]
                 model.close()
                 expect(model.planAskedDay == model.today, "an added plan counts as asked for today")
                 model.planAskedDay = nil  // isolated: not saved
                 // A fixed 9 AM, so the check does not depend on when the test runs.
-                let saved = UserDefaults.standard.string(forKey: "planAskedDay")
                 expect(model.askToPlan(now: nineToday(), idleSeconds: 0) && model.mode == .morning,
                        "the morning question shows")
-                expect(UserDefaults.standard.string(forKey: "planAskedDay") == saved,
-                       "an isolated run does not save planAskedDay")
                 model.tap()
             },
             {
                 expect(model.mode == .open && model.page == .plan, "a tap on the question opens the plan page")
                 model.close()
                 expect(!model.askToPlan(now: nineToday(), idleSeconds: 0), "the question shows once a day")
+                expect(UserDefaults.standard.string(forKey: "planAskedDay") == askedAtStart,
+                       "a test run never saves planAskedDay")
                 print(failures == 0 ? "ALL PASS" : "\(failures) FAILED")
                 exit(failures == 0 ? 0 : 1)
             },
@@ -294,7 +346,8 @@ enum Harness {
         panel.ignoresMouseEvents = true
         panel.alphaValue = 0  // invisible: the layer still renders for snapshots
         model.isolated = true
-        // The test build shares the app's UserDefaults. Start every run from the defaults (not saved).
+        // A debug build uses the "Isle" defaults domain, as `swift run Isle` does. Start every run from the
+        // defaults, not saved, so a run neither reads nor changes what a debug session left there.
         model.theme = .standard
         model.glassLook = .system
         model.reminderSound = true
