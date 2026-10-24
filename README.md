@@ -29,6 +29,11 @@ island drops down and asks if it is done.
   with "Good morning. Plan your Friday?" and the buttons **Later** and **Plan**. It does not take the
   keyboard from your app. It does not come after 6 PM, after you already planned, or while a reminder
   is due. Turn it off in settings with **Morning plan**.
+- **Notes.** A Notes tab (⌘4) holds free notes and your day notes, newest first, with a search field.
+  ⌘N makes a note, and ⌃⌥N makes one from any app. Under the plan, a **Note for today** holds what is
+  not a task; Tab on the last plan line moves into it. A task can hold a note too: hover it and click
+  the note button, or right-click and choose **Add Note**. A small icon shows which tasks have one.
+  Notes are plain text and save as you type. A note you leave empty goes away.
 - **Move a task in two clicks.** Hover a row and click ☀︎ to move it to today. Click the calendar to pick a day
   chip, a time chip, or type a phrase like `fri 4pm`. Click **Done**, or press Return or Esc, to close it.
 - **Rename in place.** Click a title to edit it. Return or a click elsewhere saves. Esc cancels.
@@ -72,11 +77,13 @@ Isle reads only the **last words** of a task, so "Monday night football" stays a
 |---|---|
 | ⌃⌥T | Open the island with the add field focused. Press again to close. |
 | Return | Add the task. |
-| ⌘1 / ⌘2 / ⌘3 | Today / Upcoming / Backlog |
+| ⌃⌥N | New note, from any app. Press again to close. |
+| ⌘1 / ⌘2 / ⌘3 / ⌘4 | Today / Upcoming / Backlog / Notes |
+| ⌘N | On the Notes tab: a new note. |
 | ⌘P | Plan your day. Press again to go back to the list. |
 | ⌘Return | On the plan page: add every line as a task. |
 | ⌘, | Settings |
-| Esc | Leave the plan or settings page, cancel the edit, clear the field, then close. The plan you typed stays. |
+| Esc | Close an edit or a note, leave the plan or settings page, clear the field, then close. The plan you typed stays. |
 | Right-click | Launch at Login, Show Data File, Quit. |
 
 ## Install
@@ -106,12 +113,15 @@ Sources/
     Morning.swift      when to ask "Plan your day?"
     Format.swift       "Tomorrow", "Fri, Oct 9 · 3:30 PM"
     TodoStore.swift    @Observable list, saved as JSON after each change
+    Note.swift         free, day, and task notes, and their search
+    JSONFile.swift     atomic saves, backups, a corrupt file kept aside, owner-only files
   Isle/            AppKit + SwiftUI
     IslandPanel.swift  borderless NSPanel over the notch
     IslandModel.swift  modes (closed, peek, open, alert, morning), focus, undo, the plan draft
     IslandView.swift   island shape, wings, peek, reminder, morning question
     OpenView.swift     tabs, add field, lists
-    PlanView.swift     the plan page
+    PlanView.swift     the plan page and its day note
+    NotesView.swift    the Notes tab and the note editor
     TaskRow.swift      rows and the schedule editor
     SettingsView.swift themes, glass look, sound, launch at login
     Settings.swift     theme and settings types
@@ -138,8 +148,8 @@ Some details that took more than one try:
   midnight. 5 PM stays 5 PM when you change time zones.
 - **Safe storage.** Isle saves after every change with an atomic write, so a crash cannot leave half a
   file. On each launch it copies the file that loaded to `todos.backup.json`. If `todos.json` does not
-  decode, Isle moves it aside as `todos.corrupt-<time>.json` and starts empty. Quit Isle before you
-  edit the file by hand, or the next save replaces your edit.
+  decode, Isle moves it aside as `todos.corrupt-<time>.json` and starts empty. `notes.json` follows the
+  same rules. Quit Isle before you edit a file by hand, or the next save replaces your edit.
 
 ## Develop
 
@@ -153,8 +163,9 @@ ISLE_SNAPSHOT=/tmp/shots swift run Isle      # saves a PNG of each island state
 - The harness modes run the panel invisibly and ignore your pointer, so you can keep working.
 - `swift Scripts/make-icon.swift` redraws the app icon.
 
-Your tasks live in `~/Library/Application Support/Isle/todos.json`, beside `todos.backup.json`.
-Time Machine backs up that folder. Settings live in `UserDefaults`: `theme`, `glassLook`,
+Your tasks live in `~/Library/Application Support/Isle/todos.json`, beside `todos.backup.json`. Notes
+live in `notes.json` in the same folder. Isle makes these files readable by your account only. Notes are
+plain text on your disk: do not keep passwords in them. Time Machine backs up that folder. Settings live in `UserDefaults`: `theme`, `glassLook`,
 `reminderSound`, `morningPlan`, and `planAskedDay` (the last day the morning question showed).
 
 ## Not yet
