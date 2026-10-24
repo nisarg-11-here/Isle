@@ -20,7 +20,16 @@ island drops down and asks if it is done.
   always see what the task gets, and a tag at the right shows where it will go.
 - **Three lists.** *Today* (with overdue tasks and a "now" line), *Upcoming* (grouped by day), and
   *Backlog* (no date yet).
-- **Plan in two clicks.** Hover a row and click ☀︎ to move it to today. Click the calendar to pick a day
+- **Plan your day.** Press ⌘P or click the pencil in the header. Write one task on each line, from the
+  top of your head, and press ⌘Return to add them all, in order. Return starts a new line, ↑ and ↓ move
+  between lines, and a list marker such as `- ` or `1. ` is dropped. The time words still work:
+  `call mom 6pm`. The open tasks already on Today show on one line, so you do not write them twice.
+  One Undo removes the whole plan.
+- **A morning question.** Once a day, the first time you use the Mac after 5 AM, the island drops down
+  with "Good morning. Plan your Friday?" and the buttons **Later** and **Plan**. It does not take the
+  keyboard from your app. It does not come after 6 PM, after you already planned, or while a reminder
+  is due. Turn it off in settings with **Morning plan**.
+- **Move a task in two clicks.** Hover a row and click ☀︎ to move it to today. Click the calendar to pick a day
   chip, a time chip, or type a phrase like `fri 4pm`. Click **Done**, or press Return or Esc, to close it.
 - **Rename in place.** Click a title to edit it. Return or a click elsewhere saves. Esc cancels.
 - **Reminders in the island.** At a task's time, the island expands with **Done** and **Snooze 10m**.
@@ -28,8 +37,8 @@ island drops down and asks if it is done.
 - **Two themes.** *Standard* is the black island. *Glass* uses Apple's Liquid Glass for the peek, the
   open island, and reminders, in a System, Light, or Dark look. The closed island stays black in both,
   so it still hides in the notch.
-- **Settings in the island.** Click the gear or press ⌘, to pick a theme, turn the reminder sound on or
-  off, and start Isle at login.
+- **Settings in the island.** Click the gear or press ⌘, to pick a theme, turn the reminder sound and
+  the morning question on or off, and start Isle at login.
 - **Local and private.** Tasks stay in one JSON file on your Mac. No account, no network.
 
 | Closed | Peek | Reminder |
@@ -64,8 +73,10 @@ Isle reads only the **last words** of a task, so "Monday night football" stays a
 | ⌃⌥T | Open the island with the add field focused. Press again to close. |
 | Return | Add the task. |
 | ⌘1 / ⌘2 / ⌘3 | Today / Upcoming / Backlog |
+| ⌘P | Plan your day. Press again to go back to the list. |
+| ⌘Return | On the plan page: add every line as a task. |
 | ⌘, | Settings |
-| Esc | Leave settings, cancel the edit, clear the field, then close. |
+| Esc | Leave the plan or settings page, cancel the edit, clear the field, then close. The plan you typed stays. |
 | Right-click | Launch at Login, Show Data File, Quit. |
 
 ## Install
@@ -91,14 +102,16 @@ Sources/
   IsleCore/        Foundation only, fully unit tested
     Todo.swift         the model and "yyyy-MM-dd" day keys
     Queries.swift      today / upcoming / backlog / progress / next / due
-    QuickParse.swift   "dentist fri 3:30pm" → title, day, minute
+    QuickParse.swift   "dentist fri 3:30pm" → title, day, minute; a plan of many lines
+    Morning.swift      when to ask "Plan your day?"
     Format.swift       "Tomorrow", "Fri, Oct 9 · 3:30 PM"
     TodoStore.swift    @Observable list, saved as JSON after each change
   Isle/            AppKit + SwiftUI
     IslandPanel.swift  borderless NSPanel over the notch
-    IslandModel.swift  modes (closed, peek, open, alert), focus, undo
-    IslandView.swift   island shape, wings, peek, reminder
+    IslandModel.swift  modes (closed, peek, open, alert, morning), focus, undo, the plan draft
+    IslandView.swift   island shape, wings, peek, reminder, morning question
     OpenView.swift     tabs, add field, lists
+    PlanView.swift     the plan page
     TaskRow.swift      rows and the schedule editor
     SettingsView.swift themes, glass look, sound, launch at login
     Settings.swift     theme and settings types
@@ -141,7 +154,8 @@ ISLE_SNAPSHOT=/tmp/shots swift run Isle      # saves a PNG of each island state
 - `swift Scripts/make-icon.swift` redraws the app icon.
 
 Your tasks live in `~/Library/Application Support/Isle/todos.json`, beside `todos.backup.json`.
-Time Machine backs up that folder.
+Time Machine backs up that folder. Settings live in `UserDefaults`: `theme`, `glassLook`,
+`reminderSound`, `morningPlan`, and `planAskedDay` (the last day the morning question showed).
 
 ## Not yet
 
