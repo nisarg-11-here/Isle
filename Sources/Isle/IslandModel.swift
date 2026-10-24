@@ -28,6 +28,8 @@ final class IslandModel {
     /// Goes up by one each time the add field must take focus.
     private(set) var focusRequest = 0
     var page: Page = .tasks
+    /// The day plan being written, one string for each line. It stays when the page or the island closes.
+    var planLines = [""]
 
     // MARK: Settings, kept in UserDefaults
 
@@ -39,6 +41,10 @@ final class IslandModel {
     }
     var reminderSound = UserDefaults.standard.object(forKey: "reminderSound") as? Bool ?? true {
         didSet { remember(reminderSound, "reminderSound") }
+    }
+    /// The day the morning question showed or a plan was added, so the question comes once a day.
+    var planAskedDay = UserDefaults.standard.string(forKey: "planAskedDay") {
+        didSet { remember(planAskedDay ?? "", "planAskedDay") }
     }
 
     /// A harness run shares the app's UserDefaults, so an isolated island never writes them.
@@ -56,9 +62,13 @@ final class IslandModel {
     @ObservationIgnored private var undoAction: (() -> Void)?
     @ObservationIgnored private var alerted = Set<UUID>()
     @ObservationIgnored private var previousApp: NSRunningApplication?
+    /// The day `planLines` was written for. A draft from an earlier day is not today's plan.
+    @ObservationIgnored private var planDay: String?
 
     static let wing: CGFloat = 44
     static let openMaxHeight: CGFloat = 480
+    /// A paste of thousands of lines must not make thousands of fields.
+    static let planLineLimit = 100
 
     init(store: TodoStore) {
         self.store = store
@@ -71,6 +81,8 @@ final class IslandModel {
     var progress: DayProgress { store.todos.progress(now) }
     var next: Todo? { store.todos.nextTimed(now) }
     var plan: Parsed { QuickParse.plan(draft, bucket: bucket, now: now) }
+    /// The tasks the plan page will add.
+    var planned: [Parsed] { QuickParse.planLines(planLines, now: now) }
 
     var alertTodo: Todo? {
         guard case .alert(let id) = mode else { return nil }
@@ -129,8 +141,8 @@ final class IslandModel {
         }
     }
 
-    /// Nothing typed and nothing in edit, so the island may close by itself.
-    private var isIdle: Bool { draft.isEmpty && editing == nil && scheduling == nil }
+    /// Nothing typed, nothing in edit, and no plan page, so the island may close by itself.
+    private var isIdle: Bool { draft.isEmpty && editing == nil && scheduling == nil && page != .plan }
 
     func tap() {
         if mode != .open { open() }
@@ -159,6 +171,8 @@ final class IslandModel {
     func escape() {
         if page == .settings {
             toggleSettings()
+        } else if page == .plan {
+            togglePlan()
         } else if editing != nil || scheduling != nil {
             endEditing()
         } else if !draft.isEmpty {
@@ -346,6 +360,77 @@ final class IslandModel {
         let words = QuickParse.phrase(day: day, minute: minute, now: now)
         draft = words.isEmpty ? title : "\(title) \(words)"
         focusRequest += 1  // keep typing after a click
+    }
+
+    // MARK: Day plan
+
+    /// Shows the plan page, and opens the island first if it is closed.
+    func openPlan() {
+        endEditing()
+        if planDay != today {
+            planLines = [""]
+            planDay = today
+        }
+        if mode != .open { open() }
+        withAnimation(.snappy) { page = .plan }
+    }
+
+    /// The plan button and ⌘P: the plan page, or back to the tasks from it.
+    func togglePlan() {
+        if page == .plan {
+            withAnimation(.snappy) { page = .tasks }
+        } else {
+            openPlan()
+        }
+    }
+
+    /// Writes line `i`. Text with line breaks (a paste) fills lines from `i` on, up to the limit.
+    /// Returns the last line written, so the keyboard can follow a paste.
+    @discardableResult
+    func setPlanLine(_ i: Int, _ text: String) -> Int {
+        guard planLines.indices.contains(i) else { return i }
+        guard text.contains(where: \.isNewline) else {
+            planLines[i] = text
+            return i
+        }
+        // `\r\n` is one Character, so Windows line ends split clean.
+        let room = Self.planLineLimit - planLines.count + 1
+        let parts = text.split(whereSeparator: \.isNewline).prefix(max(room, 1)).map(String.init)
+        planLines.replaceSubrange(i...i, with: parts.isEmpty ? [""] : parts)
+        return i + max(parts.count, 1) - 1
+    }
+
+    /// Return: a new empty line under line `i`. Nil on an empty line or a full plan.
+    func insertPlanLine(after i: Int) -> Int? {
+        guard planLines.indices.contains(i), !planLines[i].trimmingCharacters(in: .whitespaces).isEmpty,
+              planLines.count < Self.planLineLimit else { return nil }
+        planLines.insert("", at: i + 1)
+        return i + 1
+    }
+
+    /// Delete on an empty line: removes it and returns the line above. The first line stays.
+    func removePlanLine(_ i: Int) -> Int? {
+        guard i > 0, planLines.indices.contains(i), planLines[i].isEmpty else { return nil }
+        planLines.remove(at: i)
+        return i - 1
+    }
+
+    /// ⌘Return: every line with a title becomes a task, in order. One undo removes them all.
+    func commitPlan() {
+        let items = planned
+        guard !items.isEmpty else { return }
+        var added: [Todo] = []
+        withAnimation(.snappy) {
+            added = store.add(items)
+            planLines = [""]
+            page = .tasks
+            bucket = .today
+        }
+        planAskedDay = today
+        let ids = Set(added.map(\.id))
+        showToast("Added \(added.count) \(added.count == 1 ? "task" : "tasks")") { [weak self] in
+            _ = self?.store.delete(ids)
+        }
     }
 
     func undoLast() {

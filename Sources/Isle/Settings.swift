@@ -2,7 +2,7 @@ import ServiceManagement
 import SwiftUI
 
 /// What the open island shows.
-enum Page { case tasks, settings }
+enum Page { case tasks, settings, plan }
 
 enum IslandTheme: String, CaseIterable {
     case standard, glass

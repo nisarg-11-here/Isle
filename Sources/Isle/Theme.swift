@@ -160,6 +160,32 @@ struct IconButton: View {
     }
 }
 
+/// "‹ Settings" or "‹ Plan" in the header, in place of the tabs.
+struct BackButton: View {
+    let title: String
+    let action: () -> Void
+
+    init(_ title: String, action: @escaping () -> Void) {
+        self.title = title
+        self.action = action
+    }
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                Image(systemName: "chevron.left").font(.system(size: 10, weight: .bold))
+                Text(title).font(.system(size: 12, weight: .semibold))
+            }
+            .foregroundStyle(Color.ink)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 4)
+            .background(Capsule().fill(Color.ink.opacity(0.14)))
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
 struct PillButton: ButtonStyle {
     let fill: Color
     let text: Color

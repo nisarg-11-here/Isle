@@ -37,6 +37,12 @@ enum Harness {
                 model.glassLook = .dark
             }),
             ("13-glass-light-settings", { model.glassLook = .light }),
+            ("14-plan", {
+                model.theme = .standard
+                // Set, not animated: the hidden test panel does not run animations, so a transition never ends.
+                model.page = .plan
+                model.planLines = ["finish A1 phase 2", "- call mom 6pm", "dentist fri 3pm", ""]
+            }),
         ]
         func step(_ i: Int) {
             guard i < steps.count else { return NSApp.terminate(nil) }
@@ -65,6 +71,13 @@ enum Harness {
             NSApp.sendEvent(e)
         }
         func type(_ text: String) { text.forEach { key(String($0), 0) } }
+        /// A ⌘ key equivalent, the way AppKit offers it to the window before any view sees the key.
+        func shortcut(_ chars: String, _ code: UInt16) {
+            guard let e = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: .command, timestamp: 0,
+                                           windowNumber: panel.windowNumber, context: nil, characters: chars,
+                                           charactersIgnoringModifiers: chars, isARepeat: false, keyCode: code) else { return }
+            _ = panel.performKeyEquivalent(with: e)
+        }
         /// A real click through AppKit and SwiftUI hit testing, at a point in window coordinates.
         func click(_ point: NSPoint) {
             for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
@@ -188,6 +201,60 @@ enum Harness {
                 model.draft = ""
                 model.close()
                 model.theme = .standard
+                model.open()
+            },
+            { shortcut("p", 35) },
+            {
+                expect(model.page == .plan, "⌘P opens the plan page")
+                type("a1 phase 2")
+                key("\r", 36)
+            },
+            { type("call mom 6pm") },
+            {
+                expect(model.planLines == ["a1 phase 2", "call mom 6pm"], "Return starts a new plan line")
+                key(esc, 53)
+            },
+            {
+                expect(model.page == .tasks && model.planLines.count == 2, "Esc keeps the plan draft")
+                shortcut("p", 35)
+            },
+            {
+                expect(model.page == .plan && model.planLines == ["a1 phase 2", "call mom 6pm"], "⌘P shows the draft again")
+                shortcut("\r", 36)
+            },
+            {
+                let a = model.store.todos.first { $0.title == "a1 phase 2" }
+                let c = model.store.todos.first { $0.title == "call mom" }
+                expect(a?.day == model.today && a?.minute == nil && c?.day == model.today && c?.minute == 1080
+                       && (a?.created ?? .distantFuture) < (c?.created ?? .distantPast)
+                       && model.page == .tasks && model.planLines == [""], "⌘Return adds the plan in order")
+                model.undoLast()
+            },
+            {
+                expect(!model.store.todos.contains { $0.title == "a1 phase 2" || $0.title == "call mom" },
+                       "Undo removes the whole plan")
+                _ = model.setPlanLine(0, (1...150).map(String.init).joined(separator: "\n"))
+                expect(model.planLines.count == IslandModel.planLineLimit, "a huge paste keeps 100 lines")
+                model.planLines = [""]
+                _ = model.setPlanLine(0, "a\r\nb")
+                expect(model.planLines == ["a", "b"], "a CRLF paste splits clean")
+                model.planLines = ["one", "two"]
+                model.togglePlan()  // the page focuses the last line
+            },
+            { key("\r", 36) },
+            {
+                expect(model.planLines == ["one", "two", ""], "Return on the last line adds a line")
+                key("\u{7F}", 51)
+            },
+            {
+                expect(model.planLines == ["one", "two"], "Delete on an empty line removes it")
+                key(String(UnicodeScalar(NSUpArrowFunctionKey)!), 126)
+            },
+            { type("!") },
+            {
+                expect(model.planLines[0].hasSuffix("!") && model.planLines[1] == "two", "↑ moves to the line above")
+                model.planLines = [""]
+                model.close()
                 print(failures == 0 ? "ALL PASS" : "\(failures) FAILED")
                 exit(failures == 0 ? 0 : 1)
             },

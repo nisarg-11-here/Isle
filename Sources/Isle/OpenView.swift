@@ -16,21 +16,26 @@ struct OpenView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 0) {
                 Group {
-                    if model.page == .settings { SettingsBack() } else { BucketTabs() }
+                    switch model.page {
+                    case .tasks: BucketTabs()
+                    case .settings: BackButton("Settings") { model.toggleSettings() }
+                    case .plan: BackButton("Plan") { model.togglePlan() }
+                    }
                 }
                 .frame(width: side, alignment: .leading)
                 Color.clear.frame(width: model.notch.width)
                 HeaderInfo().frame(width: side, alignment: .trailing)
             }
             .frame(height: model.notch.height)
-            if model.page == .settings {
-                SettingsView().transition(.opacity)
-            } else {
+            switch model.page {
+            case .tasks:
                 AddField()
                 TaskList()
                 if let toast = model.toast {
                     ToastBar(toast: toast).transition(.move(edge: .bottom).combined(with: .opacity))
                 }
+            case .settings: SettingsView().transition(.opacity)
+            case .plan: PlanView().transition(.opacity)
             }
         }
         .padding(.horizontal, 20)
@@ -83,6 +88,10 @@ struct HeaderInfo: View {
                 Text("\(p.done)/\(p.total)").font(.digits(11)).foregroundStyle(Color.ink.opacity(0.45))
                 ProgressRing(progress: p).frame(width: 14, height: 14)
             }
+            IconButton(icon: "square.and.pencil", help: "Plan your day: many tasks at once (⌘P)") {
+                model.togglePlan()
+            }
+            .keyboardShortcut("p", modifiers: .command)
             IconButton(icon: model.page == .settings ? "gearshape.fill" : "gearshape", help: "Settings (⌘,)") {
                 model.toggleSettings()
             }
@@ -226,8 +235,9 @@ struct TodayRows: View {
         if s.isEmpty {
             let waiting = model.store.todos.backlog(model.now).count
             EmptyState(icon: "sun.max.fill", tint: .isleOrange, title: "Clear day",
-                       subtitle: "Add a task above, or pull one from the backlog.",
-                       action: waiting > 0 ? ("Open Backlog (\(waiting))", { model.bucket = .backlog }) : nil)
+                       subtitle: "Write what you want to get done today.",
+                       actions: [("Plan your day", { model.openPlan() })]
+                           + (waiting > 0 ? [("Open Backlog (\(waiting))", { model.bucket = .backlog })] : []))
         } else {
             let nowMinute = Day.minute(of: model.now)
             if !s.overdue.isEmpty {
@@ -320,17 +330,21 @@ struct EmptyState: View {
     let tint: Color
     let title: String
     let subtitle: String
-    var action: (String, () -> Void)?
+    var actions: [(String, () -> Void)] = []
 
     var body: some View {
         VStack(spacing: 6) {
             Image(systemName: icon).font(.system(size: 20)).foregroundStyle(tint)
             Text(title).font(.system(size: 13, weight: .semibold)).foregroundStyle(Color.ink.opacity(0.9))
             Text(subtitle).font(.system(size: 11)).foregroundStyle(Color.ink.opacity(0.45))
-            if let action {
-                Button(action.0, action: action.1)
-                    .buttonStyle(PillButton(fill: Color.ink.opacity(0.12), text: .ink))
-                    .padding(.top, 4)
+            if !actions.isEmpty {
+                HStack(spacing: 8) {
+                    ForEach(actions.indices, id: \.self) { i in
+                        Button(actions[i].0, action: actions[i].1)
+                            .buttonStyle(PillButton(fill: Color.ink.opacity(0.12), text: .ink))
+                    }
+                }
+                .padding(.top, 4)
             }
         }
         .frame(maxWidth: .infinity)

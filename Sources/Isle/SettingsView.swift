@@ -54,26 +54,6 @@ struct SettingsView: View {
     }
 }
 
-/// "‹ Settings" in the header, in place of the tabs.
-struct SettingsBack: View {
-    @Environment(IslandModel.self) private var model
-
-    var body: some View {
-        Button { model.toggleSettings() } label: {
-            HStack(spacing: 4) {
-                Image(systemName: "chevron.left").font(.system(size: 10, weight: .bold))
-                Text("Settings").font(.system(size: 12, weight: .semibold))
-            }
-            .foregroundStyle(Color.ink)
-            .padding(.horizontal, 9)
-            .padding(.vertical, 4)
-            .background(Capsule().fill(Color.ink.opacity(0.14)))
-            .contentShape(Capsule())
-        }
-        .buttonStyle(.plain)
-    }
-}
-
 private struct SettingRow<Control: View>: View {
     let title: String
     let control: Control
