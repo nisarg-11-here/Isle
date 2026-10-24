@@ -105,7 +105,7 @@ private func permissions(_ url: URL) throws -> Int {
     try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
     let url = dir.appendingPathComponent("notes.json")
     try Data("{".utf8).write(to: url)
-    #expect(JSONFile<[Todo]>(url: url).load() == nil)
+    #expect(JSONFile<[Note]>(url: url).load() == nil)
     let files = try FileManager.default.contentsOfDirectory(atPath: dir.path)
     #expect(files.contains { $0.hasPrefix("notes.corrupt-") })
     #expect(!files.contains("notes.json"))
