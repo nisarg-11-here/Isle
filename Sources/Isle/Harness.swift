@@ -7,6 +7,12 @@ enum Harness {
     static func snapshot(model: IslandModel, panel: NSPanel, dir: URL) {
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         isolate(panel, model)
+        if model.notes.notes.isEmpty {
+            model.notes.setDayNote(model.today, "TA office hours moved to Wed. Bring the charger.")
+            for text in ["Book list\nThe Pragmatic Programmer", "Wi-Fi for the lab\nnetwork CS-Lab, ask the TA for the guest code"] {
+                model.notes.setText(model.notes.create().id, text)
+            }
+        }
         let steps: [(String, () -> Void)] = [
             ("1-closed", { model.set(.closed) }),
             ("2-peek", { model.set(.peek) }),
@@ -56,11 +62,18 @@ enum Harness {
                 model.set(.open)
                 model.page = .settings
             }),
+            ("17-notes", { model.page = .notes }),
+            ("18-note-editor", {
+                model.shownNote = model.notes.notes.first { $0.title == "Wi-Fi for the lab" }?.id
+            }),
         ]
         func step(_ i: Int) {
             guard i < steps.count else { return NSApp.terminate(nil) }
             steps[i].1()
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                // A hidden window draws only when asked.
+                panel.contentView?.layoutSubtreeIfNeeded()
+                panel.displayIfNeeded()
                 save(panel, to: dir.appendingPathComponent("\(steps[i].0).png"))
                 step(i + 1)
             }
@@ -89,6 +102,13 @@ enum Harness {
         let backspace = "\u{7F}"
         /// The window's text editor, where typed keys land.
         func editor() -> NSTextView? { panel.firstResponder as? NSTextView }
+        func draw() {
+            panel.contentView?.layoutSubtreeIfNeeded()
+            panel.displayIfNeeded()
+        }
+        func shownText() -> String? {
+            model.shownNote.flatMap { id in model.notes.notes.first { $0.id == id }?.text }
+        }
         /// A ⌘ key equivalent, the way AppKit offers it to the window before any view sees the key.
         func shortcut(_ chars: String, _ code: UInt16) {
             guard let e = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: .command, timestamp: 0,
@@ -291,7 +311,6 @@ enum Harness {
             {
                 expect(model.planLines.count == 3, "Delete while an input method composes keeps the line")
                 editor()?.unmarkText()
-                editor()?.string = ""
             },
             {
                 // A real paste through the field, from a private pasteboard, so the user's clipboard stays.
@@ -332,12 +351,60 @@ enum Harness {
                 expect(!model.askToPlan(now: nineToday(), idleSeconds: 0), "the question shows once a day")
                 expect(UserDefaults.standard.string(forKey: "planAskedDay") == askedAtStart,
                        "a test run never saves planAskedDay")
+                model.open()
+            },
+            { shortcut("4", 21) },
+            {
+                expect(model.page == .notes && model.shownNote == nil, "⌘4 shows Notes")
+                shortcut("n", 45)
+            },
+            {
+                expect(model.shownNote != nil, "⌘N opens a new note")
+                type("Wi-Fi for the lab")
+            },
+            {
+                expect(shownText() == "Wi-Fi for the lab", "typing goes into the note")
+                key(esc, 53)
+            },
+            {
+                expect(model.shownNote == nil && model.page == .notes && model.mode == .open
+                       && model.notes.notes.contains { $0.title == "Wi-Fi for the lab" }, "Esc goes back to the list")
+                expect(model.notes.notes.matching("LAB").count == 1, "search finds the note")
+                model.newNote()
+            },
+            {
+                // Leave with the new note still empty: a click on the Today tab.
+                model.bucket = .today
+                model.page = .tasks
+                expect(!model.notes.notes.contains(where: \.isEmpty), "an empty note is gone when you leave it")
+                model.showNotes()
+                if let lab = model.notes.notes.first(where: { $0.title == "Wi-Fi for the lab" }) { model.deleteNote(lab.id) }
+                expect(!model.notes.notes.contains { $0.title == "Wi-Fi for the lab" } && model.toast != nil,
+                       "a deleted note goes, with an undo bar")
+                model.undoLast()
+                expect(model.notes.notes.contains { $0.title == "Wi-Fi for the lab" }, "Undo brings a deleted note back")
+                model.close()
+                model.noteHotKey()
+            },
+            {
+                expect(model.mode == .open && model.page == .notes && model.shownNote != nil, "⌃⌥N opens a new note")
+                model.noteHotKey()
+            },
+            {
+                expect(model.mode == .closed && !model.notes.notes.contains(where: \.isEmpty),
+                       "⌃⌥N again closes, and the empty note is gone")
                 print(failures == 0 ? "ALL PASS" : "\(failures) FAILED")
                 exit(failures == 0 ? 0 : 1)
             },
         ]
         for (i, step) in steps.enumerated() {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8 * Double(i + 1), execute: step)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8 * Double(i + 1)) {
+                step()
+                // A hidden window draws only when asked. Draw now, and again once the views' own deferred
+                // work (a focus asked for one moment later) has run, so the next step meets the views this one made.
+                draw()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4, execute: draw)
+            }
         }
     }
 

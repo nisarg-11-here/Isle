@@ -17,7 +17,7 @@ struct OpenView: View {
             HStack(spacing: 0) {
                 Group {
                     switch model.page {
-                    case .tasks: BucketTabs()
+                    case .tasks, .notes: BucketTabs()
                     case .settings: BackButton("Settings") { model.toggleSettings() }
                     case .plan: BackButton("Plan") { model.togglePlan() }
                     }
@@ -33,6 +33,7 @@ struct OpenView: View {
                 TaskList()
             case .settings: SettingsView().transition(.opacity)
             case .plan: PlanView().transition(.opacity)
+            case .notes: NotesView().transition(.opacity)
             }
             // The plan page lists tasks too ("Already on Today"), so its deletes and moves need the undo bar.
             if let toast = model.toast, model.page != .settings {
@@ -55,24 +56,32 @@ struct BucketTabs: View {
     var body: some View {
         HStack(spacing: 2) {
             ForEach(Bucket.allCases, id: \.self) { b in
-                let on = model.bucket == b
-                Button {
-                    withAnimation(.snappy) { model.bucket = b }
-                } label: {
-                    Text(b.title)
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(on ? Color.ink : Color.ink.opacity(0.45))
-                        .padding(.horizontal, 9)
-                        .padding(.vertical, 4)
-                        .background {
-                            if on { Capsule().fill(Color.ink.opacity(0.14)).matchedGeometryEffect(id: "pill", in: pill) }
-                        }
-                        .contentShape(Capsule())
+                tab(b.title, on: model.page == .tasks && model.bucket == b) {
+                    withAnimation(.snappy) {
+                        model.bucket = b
+                        model.page = .tasks
+                    }
                 }
-                .buttonStyle(.plain)
                 .keyboardShortcut(KeyEquivalent(Character("\(b.rawValue + 1)")), modifiers: .command)
             }
+            tab("Notes", on: model.page == .notes) { model.showNotes() }
+                .keyboardShortcut("4", modifiers: .command)
         }
+    }
+
+    private func tab(_ title: String, on: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(on ? Color.ink : Color.ink.opacity(0.45))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background {
+                    if on { Capsule().fill(Color.ink.opacity(0.14)).matchedGeometryEffect(id: "pill", in: pill) }
+                }
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
     }
 }
 

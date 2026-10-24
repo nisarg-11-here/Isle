@@ -3,16 +3,18 @@ import Carbon.HIToolbox
 import IsleCore
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    // ISLE_DATA points the app at another file, for demos and testing.
-    private let model = IslandModel(store: TodoStore(url: ProcessInfo.processInfo.environment["ISLE_DATA"]
-        .map { URL(fileURLWithPath: $0) } ?? TodoStore.defaultURL))
+    // ISLE_DATA points the app at another file, for demos and testing. Notes live beside it.
+    private static let dataURL = ProcessInfo.processInfo.environment["ISLE_DATA"]
+        .map { URL(fileURLWithPath: $0) } ?? TodoStore.defaultURL
+    private let model = IslandModel(store: TodoStore(url: dataURL), notes: NoteStore(url: NoteStore.url(beside: dataURL)))
     private var panel: IslandPanel?
     private var clock: Timer?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.mainMenu = Self.editMenu()
         panel = IslandPanel(model: model)
-        registerHotKey(keyCode: kVK_ANSI_T, modifiers: controlKey | optionKey) { [model] in model.hotKey() }
+        registerHotKey(id: 1, "⌃⌥T", keyCode: kVK_ANSI_T, modifiers: controlKey | optionKey) { [model] in model.hotKey() }
+        registerHotKey(id: 2, "⌃⌥N", keyCode: kVK_ANSI_N, modifiers: controlKey | optionKey) { [model] in model.noteHotKey() }
         let env = ProcessInfo.processInfo.environment
         if let dir = env["ISLE_SNAPSHOT"], let panel {
             Harness.snapshot(model: model, panel: panel, dir: URL(fileURLWithPath: dir))
@@ -53,18 +55,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 }
 
-private var hotKeyAction: (() -> Void)?
+/// The action of each hot key, by its id.
+private var hotKeyActions: [UInt32: () -> Void] = [:]
 
-/// Registers one global hotkey with Carbon. It needs no Accessibility permission.
-private func registerHotKey(keyCode: Int, modifiers: Int, action: @escaping () -> Void) {
-    hotKeyAction = action
-    var spec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
-    InstallEventHandler(GetApplicationEventTarget(), { _, _, _ in
-        DispatchQueue.main.async { hotKeyAction?() }
-        return noErr
-    }, 1, &spec, nil, nil)
+/// Registers a global hot key with Carbon. It needs no Accessibility permission.
+private func registerHotKey(id: UInt32, _ name: String, keyCode: Int, modifiers: Int, action: @escaping () -> Void) {
+    if hotKeyActions.isEmpty {
+        var spec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
+        InstallEventHandler(GetApplicationEventTarget(), { _, event, _ in
+            var key = EventHotKeyID()
+            let status = GetEventParameter(event, EventParamName(kEventParamDirectObject), EventParamType(typeEventHotKeyID),
+                                           nil, MemoryLayout<EventHotKeyID>.size, nil, &key)
+            guard status == noErr else { return status }
+            DispatchQueue.main.async { hotKeyActions[key.id]?() }
+            return noErr
+        }, 1, &spec, nil, nil)
+    }
+    hotKeyActions[id] = action
     var ref: EventHotKeyRef?
-    let id = EventHotKeyID(signature: OSType(0x4953_4C45), id: 1)  // "ISLE"
-    let status = RegisterEventHotKey(UInt32(keyCode), UInt32(modifiers), id, GetApplicationEventTarget(), 0, &ref)
-    if status != noErr { NSLog("Isle: could not register ⌃⌥T (\(status)). Click the notch instead.") }
+    let hotKeyID = EventHotKeyID(signature: OSType(0x4953_4C45), id: id)  // "ISLE"
+    let status = RegisterEventHotKey(UInt32(keyCode), UInt32(modifiers), hotKeyID, GetApplicationEventTarget(), 0, &ref)
+    if status != noErr { NSLog("Isle: could not register \(name) (\(status)). Click the notch instead.") }
 }

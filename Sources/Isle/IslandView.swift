@@ -213,6 +213,7 @@ struct MorningView: View {
 struct IslandMenu: View {
     var body: some View {
         Text("Open or close: ⌃⌥T")
+        Text("New note: ⌃⌥N")
         Toggle("Launch at Login", isOn: Binding(get: { LaunchAtLogin.isOn }, set: { LaunchAtLogin.set($0) }))
         Button("Show Data File") { NSWorkspace.shared.activateFileViewerSelecting([TodoStore.defaultURL]) }
         Divider()

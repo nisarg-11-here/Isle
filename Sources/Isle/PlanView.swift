@@ -173,10 +173,15 @@ struct PlanLineField: NSViewRepresentable {
         field.setAccessibilityLabel("Plan line \(line + 1)")
         field.tag = CaretAtEndField.tagBase + line
         if field.stringValue != text { field.stringValue = text }
-        if let focusID, focusID != context.coordinator.appliedFocus {
+        if let focusID {
+            guard focusID != context.coordinator.appliedFocus else { return }
             context.coordinator.appliedFocus = focusID
+            // A field that holds the keyboard already (moved there at once) must not ask again later.
+            guard field.currentEditor() == nil else { return }
             field.wantsFocus = true
             DispatchQueue.main.async { field.takeFocusIfWanted() }
+        } else {
+            field.wantsFocus = false  // another line is the target now
         }
     }
 
@@ -222,7 +227,7 @@ final class CaretAtEndField: NSTextField {
 
     func takeFocusIfWanted() {
         guard wantsFocus, let window else { return }
-        if window.makeFirstResponder(self) { wantsFocus = false }
+        window.makeFirstResponder(self)
     }
 
     override func viewDidMoveToWindow() {
@@ -232,6 +237,7 @@ final class CaretAtEndField: NSTextField {
 
     override func becomeFirstResponder() -> Bool {
         guard super.becomeFirstResponder() else { return false }
+        wantsFocus = false
         currentEditor()?.selectedRange = NSRange(location: (stringValue as NSString).length, length: 0)
         return true
     }

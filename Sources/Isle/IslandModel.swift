@@ -17,6 +17,7 @@ struct Toast: Equatable {
 @Observable
 final class IslandModel {
     let store: TodoStore
+    let notes: NoteStore
     private(set) var mode: Mode = .closed
     var bucket: Bucket = .today
     private(set) var now = Date()
@@ -28,7 +29,12 @@ final class IslandModel {
     private(set) var toast: Toast?
     /// Goes up by one each time the add field must take focus.
     private(set) var focusRequest = 0
-    var page: Page = .tasks
+    var page: Page = .tasks {
+        didSet { if oldValue == .notes && page != .notes { closeNote() } }
+    }
+    /// The note open in the Notes tab's editor. Nil shows the list.
+    var shownNote: UUID?
+    var noteQuery = ""
     /// The day plan being written, one string for each line. It stays when the page or the island closes.
     var planLines = [""]
 
@@ -71,11 +77,14 @@ final class IslandModel {
 
     static let wing: CGFloat = 44
     static let openMaxHeight: CGFloat = 480
+    /// Width the open island adds to the notch: room for four tabs on the left.
+    static let openWidth: CGFloat = 540
     /// A paste of thousands of lines must not make thousands of fields.
     static let planLineLimit = 100
 
-    init(store: TodoStore) {
+    init(store: TodoStore, notes: NoteStore) {
         self.store = store
+        self.notes = notes
     }
 
     // MARK: Derived state
@@ -100,7 +109,7 @@ final class IslandModel {
         case .peek:
             CGSize(width: notch.width + 200, height: notch.height + 30)
         case .open:
-            CGSize(width: notch.width + 460, height: min(openHeight, Self.openMaxHeight))
+            CGSize(width: notch.width + Self.openWidth, height: min(openHeight, Self.openMaxHeight))
         case .alert, .morning:
             CGSize(width: max(notch.width + 260, 440), height: notch.height + 54)
         }
@@ -108,7 +117,7 @@ final class IslandModel {
 
     /// The largest window any mode needs. The SwiftUI canvas always has this size.
     var canvasSize: CGSize {
-        CGSize(width: notch.width + 460 + 60, height: Self.openMaxHeight + 40)
+        CGSize(width: notch.width + Self.openWidth + 60, height: Self.openMaxHeight + 40)
     }
 
     /// The panel leaves room for the shadow when open.
@@ -146,7 +155,9 @@ final class IslandModel {
     }
 
     /// Nothing typed, nothing in edit, and no plan page, so the island may close by itself.
-    private var isIdle: Bool { draft.isEmpty && editing == nil && scheduling == nil && page != .plan }
+    private var isIdle: Bool {
+        draft.isEmpty && editing == nil && scheduling == nil && page != .plan && shownNote == nil && noteQuery.isEmpty
+    }
 
     func tap() {
         if mode == .morning { return openPlan() }
@@ -180,7 +191,11 @@ final class IslandModel {
             toggleSettings()
         } else if page == .plan {
             togglePlan()
-        } else if !draft.isEmpty {
+        } else if page == .notes && shownNote != nil {
+            closeNote()
+        } else if page == .notes && !noteQuery.isEmpty {
+            noteQuery = ""
+        } else if page == .tasks && !draft.isEmpty {
             draft = ""
         } else {
             close()
@@ -221,6 +236,7 @@ final class IslandModel {
         if wasOpen {
             editing = nil
             scheduling = nil
+            closeNote()
         }
         // At once, so no key typed after Esc or after a click on an alert button is lost.
         if NSApp.isActive || panel?.isKeyWindow == true { giveBackKeyboard() }
@@ -388,6 +404,50 @@ final class IslandModel {
         let words = QuickParse.phrase(day: day, minute: minute, now: now)
         draft = words.isEmpty ? title : "\(title) \(words)"
         focusRequest += 1  // keep typing after a click
+    }
+
+    // MARK: Notes
+
+    /// The Notes tab, on its list.
+    func showNotes() {
+        endEditing()
+        closeNote()
+        withAnimation(.snappy) { page = .notes }
+    }
+
+    /// ⌘N: a new free note, open in the editor.
+    func newNote() {
+        if mode != .open { open() }
+        showNotes()
+        noteQuery = ""
+        openNote(notes.create().id)
+    }
+
+    func openNote(_ id: UUID) {
+        // The search field leaves the screen, but its text editor would keep the keyboard until the
+        // note's editor takes it. Keys typed in between would land in the search.
+        panel?.makeFirstResponder(nil)
+        shownNote = id
+    }
+
+    /// Back to the list. A note left with no text goes away.
+    func closeNote() {
+        guard let id = shownNote else { return }
+        notes.discardIfEmpty(id)
+        shownNote = nil
+    }
+
+    func deleteNote(_ id: UUID) {
+        guard let removed = notes.delete(id) else { return }
+        if shownNote == id { shownNote = nil }
+        showToast("Deleted note") { [weak self] in self?.notes.restore(removed) }
+    }
+
+    /// ⌃⌥N from any app: a new note, ready to type. Pressed again, it closes the island.
+    func noteHotKey() {
+        if mode == .open { return close() }
+        open(activate: true)
+        newNote()
     }
 
     // MARK: Day plan
