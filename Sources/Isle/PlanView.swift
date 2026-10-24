@@ -7,7 +7,8 @@ struct PlanView: View {
     /// The line that takes the keyboard next. A new id asks again, even for the same line.
     @State private var focusRequest = FocusRequest(line: 0)
     @State private var contentHeight: CGFloat = 0
-    private let maxHeight: CGFloat = 300
+    /// The lines and "Already on Today" scroll past this, so the day note and the footer still fit.
+    private let maxHeight: CGFloat = 200
 
     var body: some View {
         let count = model.planned.count
@@ -32,6 +33,7 @@ struct PlanView: View {
                     withAnimation(.snappy) { proxy.scrollTo(request.line) }
                 }
             }
+            DayNote()
             footer(count)
         }
         // The last line, so a draft from earlier goes on where it stopped.
@@ -49,7 +51,12 @@ struct PlanView: View {
             // Return never ends the line. On an empty line or a full plan it does nothing.
             if let next = model.insertPlanLine(after: i) { focus(next) }  // the new field asks once it exists
             return true
-        case .up, .down:
+        case .tab where i == model.planLines.count - 1:
+            // From the last line into the day note, so the morning writing stays on the keyboard.
+            guard let note = model.panel?.contentView?.viewWithTag(DayNote.tag) else { return false }
+            model.panel?.makeFirstResponder(note)
+            return true
+        case .up, .down, .tab:
             let target = command == .up ? i - 1 : i + 1
             guard model.planLines.indices.contains(target) else { return false }
             PlanLineField.focus(target, in: model.panel)
@@ -138,7 +145,7 @@ private struct PlanLineRow: View {
 /// ↑, ↓, and Delete before `onKeyPress` sees them. This field's delegate gets them as commands, after
 /// an input method has had its turn.
 struct PlanLineField: NSViewRepresentable {
-    enum Command { case newline, up, down, deleteBackward }
+    enum Command { case newline, up, down, tab, deleteBackward }
 
     @Binding var text: String
     let placeholder: String?
@@ -210,6 +217,7 @@ struct PlanLineField: NSViewRepresentable {
             case #selector(NSResponder.insertNewline(_:)): return parent.command(.newline)
             case #selector(NSResponder.moveUp(_:)): return parent.command(.up)
             case #selector(NSResponder.moveDown(_:)): return parent.command(.down)
+            case #selector(NSResponder.insertTab(_:)): return parent.command(.tab)
             case #selector(NSResponder.deleteBackward(_:)): return parent.command(.deleteBackward)
             default: return false
             }
@@ -240,6 +248,37 @@ final class CaretAtEndField: NSTextField {
         wantsFocus = false
         currentEditor()?.selectedRange = NSRange(location: (stringValue as NSString).length, length: 0)
         return true
+    }
+}
+
+/// Today's note, for what is not a task. It is made with the first letter and deleted when emptied.
+private struct DayNote: View {
+    @Environment(IslandModel.self) private var model
+    /// Tab on the last plan line finds the note's text view by this tag.
+    static let tag = 6_999
+
+    var body: some View {
+        let text = model.notes.dayNote(model.today)?.text ?? ""
+        VStack(alignment: .leading, spacing: 4) {
+            SectionLabel("Note for today")
+            NoteTextView(text: Binding(get: { model.notes.dayNote(model.today)?.text ?? "" },
+                                       set: { model.notes.setDayNote(model.today, $0) }),
+                         tag: Self.tag, onEscape: { model.escape() })
+                .frame(height: 64)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 5)
+                .background(RoundedRectangle(cornerRadius: 10).fill(Color.ink.opacity(0.06)))
+                .overlay(alignment: .topLeading) {
+                    if text.isEmpty {
+                        Text("Anything that is not a task")
+                            .font(.system(size: 13))
+                            .foregroundStyle(Color.ink.opacity(0.3))
+                            .padding(.leading, 11)
+                            .padding(.top, 5)
+                            .allowsHitTesting(false)
+                    }
+                }
+        }
     }
 }
 

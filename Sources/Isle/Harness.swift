@@ -393,6 +393,21 @@ enum Harness {
             {
                 expect(model.mode == .closed && !model.notes.notes.contains(where: \.isEmpty),
                        "⌃⌥N again closes, and the empty note is gone")
+                model.notes.setDayNote(model.today, "")
+                model.planLines = ["call mom"]
+                model.togglePlan()  // opens the island on the plan page, keyboard on the last line
+            },
+            { key("\t", 48) },
+            { type("TA hours") },
+            {
+                expect(model.notes.dayNote(model.today)?.text == "TA hours", "Tab moves from the plan into the day note")
+                expect(model.notes.notes.matching("TA hours").count == 1, "the day note shows in Notes")
+                key(esc, 53)
+            },
+            {
+                expect(model.page == .tasks && model.planLines == ["call mom"], "Esc in the day note leaves the plan page")
+                model.planLines = [""]
+                model.close()
                 print(failures == 0 ? "ALL PASS" : "\(failures) FAILED")
                 exit(failures == 0 ? 0 : 1)
             },

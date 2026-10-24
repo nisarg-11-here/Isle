@@ -146,6 +146,8 @@ private struct NoteEditor: View {
 struct NoteTextView: NSViewRepresentable {
     @Binding var text: String
     var takesFocus = false
+    /// Lets other views find this text view with `viewWithTag`.
+    var tag = 0
     let onEscape: () -> Void
     @Environment(\.colorScheme) private var scheme
 
@@ -164,6 +166,7 @@ struct NoteTextView: NSViewRepresentable {
         view.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: .greatestFiniteMagnitude)
         view.string = text
         view.wantsFocus = takesFocus
+        view.focusTag = tag
         let scroll = NSScrollView()
         scroll.drawsBackground = false
         scroll.hasVerticalScroller = true
@@ -206,6 +209,8 @@ struct NoteTextView: NSViewRepresentable {
 /// Takes the keyboard when it joins a window, once, if asked to.
 final class FocusingTextView: NSTextView {
     var wantsFocus = false
+    var focusTag = 0
+    override var tag: Int { focusTag }
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
