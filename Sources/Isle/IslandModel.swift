@@ -159,7 +159,7 @@ final class IslandModel {
     /// Nothing typed, nothing in edit, and no plan page, so the island may close by itself.
     private var isIdle: Bool {
         draft.isEmpty && editing == nil && scheduling == nil && noting == nil && page != .plan
-            && shownNote == nil && noteQuery.isEmpty
+            && shownNote == nil && (page != .notes || noteQuery.isEmpty)
     }
 
     func tap() {
@@ -237,7 +237,7 @@ final class IslandModel {
             noting = todo.id
         }
         // After the change: the add field lets go, or SwiftUI, which still thinks it has focus, takes the
-        // keyboard back from the note. (Before the change, the redraw this starts saw no note to show.)
+        // keyboard back from the note.
         panel?.makeFirstResponder(nil)
     }
 
@@ -369,7 +369,7 @@ final class IslandModel {
 
     func delete(_ todo: Todo) {
         withAnimation(.snappy) { _ = store.delete(todo.id) }
-        if scheduling == todo.id { endEditing() }
+        if scheduling == todo.id || noting == todo.id { endEditing() }
         showToast("Deleted “\(todo.title)”") { [weak self] in self?.store.restore(todo) }
     }
 
@@ -385,7 +385,7 @@ final class IslandModel {
             }
         }
         guard destination(day) != bucket else { return }
-        if scheduling == todo.id { endEditing() }
+        if scheduling == todo.id || noting == todo.id { endEditing() }
         showToast("Moved to \(Format.when(day: day, minute: minute, now: now))") { [weak self] in
             self?.store.update(todo.id) {
                 $0.day = todo.day

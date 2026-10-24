@@ -182,7 +182,9 @@ struct NoteTextView: NSViewRepresentable {
         scroll.appearance = NSAppearance(named: scheme == .dark ? .darkAqua : .aqua)
         view.textColor = NSColor(Color.ink).withAlphaComponent(0.92)
         view.insertionPointColor = NSColor(Color.ink)
-        if view.string != text { view.string = text }
+        // A note made only of spaces is not kept, so the store gives back "". Do not wipe what the user
+        // is typing for that, and do not change the text behind the undo manager's back.
+        if view.string != text && !(text.isEmpty && view.string.allSatisfy(\.isWhitespace)) { view.string = text }
     }
 
     func makeCoordinator() -> Coordinator { Coordinator(parent: self) }
@@ -196,6 +198,9 @@ struct NoteTextView: NSViewRepresentable {
             guard let view = note.object as? NSTextView else { return }
             parent.text = view.string
         }
+
+        /// Notes are plain text: even with Smart Links turned on from the menu, a link never opens.
+        func textView(_ view: NSTextView, clickedOnLink link: Any, at charIndex: Int) -> Bool { true }
 
         func textView(_ view: NSTextView, doCommandBy selector: Selector) -> Bool {
             guard selector == #selector(NSResponder.cancelOperation(_:)) || selector == #selector(NSTextView.complete(_:))

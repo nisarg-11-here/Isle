@@ -12,6 +12,12 @@ public final class TodoStore {
             .appendingPathComponent("Isle/todos.json")
     }
 
+    /// True when `url` is a file in the folder that holds the user's real data. A test run refuses it.
+    public static func isInRealFolder(_ url: URL) -> Bool {
+        func folder(_ url: URL) -> String { url.deletingLastPathComponent().standardizedFileURL.resolvingSymlinksInPath().path }
+        return folder(url) == folder(defaultURL)
+    }
+
     public init(url: URL) {
         file = JSONFile(url: url)
         load()

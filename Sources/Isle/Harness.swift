@@ -3,6 +3,12 @@ import IsleCore
 
 /// Dev checks that drive the real panel, so no screen-recording or accessibility permission is needed.
 enum Harness {
+    /// `ISLE_SELFTEST` or `ISLE_SNAPSHOT` is set.
+    static var isRunning: Bool {
+        let env = ProcessInfo.processInfo.environment
+        return env["ISLE_SELFTEST"] != nil || env["ISLE_SNAPSHOT"] != nil
+    }
+
     /// `ISLE_SNAPSHOT=<dir>`: walks the panel through each state, saves a PNG of each, and quits.
     static func snapshot(model: IslandModel, panel: NSPanel, dir: URL) {
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -183,6 +189,10 @@ enum Harness {
                 model.draft = ""
                 model.close()
                 let m = Day.minute(of: Date())
+                // "groceries 5pm" is due too from 5:00 to 5:04 PM, and it would alert first.
+                if let groceries = model.store.todos.first(where: { $0.title == "groceries" }) {
+                    model.store.update(groceries.id) { $0.minute = nil }
+                }
                 model.store.add("ping", day: model.today, minute: m)
                 model.tick()
             },
@@ -421,6 +431,42 @@ enum Harness {
                 let back = model.store.todos.first { $0.title == "email prof" }
                 expect(back != nil && back.flatMap { model.notes.taskNote($0.id)?.text } == "Ask for 2 days",
                        "a task note survives delete and Undo")
+                // A search left in Notes must not keep the island open on another page.
+                model.showNotes()
+                model.noteQuery = "x"
+                model.bucket = .today
+                model.page = .tasks
+                model.hover(true)
+                model.hover(false)
+            },
+            {},  // the island closes 0.7 s after the pointer leaves
+            {
+                expect(model.mode == .closed, "a search left in Notes does not keep the island open")
+                model.open()
+            },
+            { if let task = model.store.todos.first(where: { $0.title == "email prof" }) { model.toggleNote(task) } },
+            {
+                if let task = model.store.todos.first(where: { $0.title == "email prof" }) { model.delete(task) }
+                expect(model.noting == nil, "deleting a task closes its note editor")
+                model.undoLast()
+                // The day note's text view is the one every note uses.
+                model.notes.setDayNote(model.today, "")
+                model.planLines = ["x"]
+                model.togglePlan()
+            },
+            { key("\t", 48) },
+            {
+                type(" ")
+                model.tick()  // any redraw (here the clock) must keep a space the store does not keep
+            },
+            {
+                expect(editor()?.string == " ", "a note can start with a space")
+                if let view = editor() {
+                    let opened = view.delegate?.textView?(view, clickedOnLink: URL(string: "https://example.com")!, at: 0)
+                    expect(opened == true, "a link in a note never opens")
+                }
+                key(esc, 53)
+                model.planLines = [""]
                 model.close()
                 print(failures == 0 ? "ALL PASS" : "\(failures) FAILED")
                 exit(failures == 0 ? 0 : 1)

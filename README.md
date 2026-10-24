@@ -155,11 +155,12 @@ Some details that took more than one try:
 
 ```sh
 swift test                                   # parser, queries, and store
-ISLE_SELFTEST=1 ISLE_DATA=/tmp/t.json swift run Isle   # drives the panel with real key events
-ISLE_SNAPSHOT=/tmp/shots swift run Isle      # saves a PNG of each island state
+ISLE_SELFTEST=1 ISLE_DATA=$(mktemp -d)/t.json swift run Isle                      # drives the panel with real key events
+ISLE_SNAPSHOT=$(mktemp -d) ISLE_DATA=$(mktemp -d)/t.json swift run Isle            # saves a PNG of each island state
 ```
 
-- `ISLE_DATA` points Isle at another data file, so tests and demos never touch your list.
+- `ISLE_DATA` points Isle at another data file. Notes go beside it. Both test modes need it in a scratch
+  folder and refuse your real data folder, so a test never touches your tasks or notes.
 - The harness modes run the panel invisibly and ignore your pointer, so you can keep working.
 - `swift Scripts/make-icon.swift` redraws the app icon.
 

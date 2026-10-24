@@ -110,3 +110,27 @@ private func permissions(_ url: URL) throws -> Int {
     #expect(files.contains { $0.hasPrefix("notes.corrupt-") })
     #expect(!files.contains("notes.json"))
 }
+
+@Test func onlyTheDefaultFolderIsTheRealOne() {
+    let real = TodoStore.defaultURL.deletingLastPathComponent()
+    #expect(TodoStore.isInRealFolder(real.appendingPathComponent("t.json")))
+    #expect(TodoStore.isInRealFolder(real.appendingPathComponent("x/../t.json")))
+    #expect(!TodoStore.isInRealFolder(tempDir().appendingPathComponent("t.json")))
+}
+
+@Test func aCorruptFileIsKeptEvenWhenItsAsideNameIsTaken() throws {
+    let dir = tempDir()
+    try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    let url = dir.appendingPathComponent("todos.json")
+    try Data("broken".utf8).write(to: url)
+    // The names a move aside in the next few seconds would pick are taken already.
+    let second = Int(Date().timeIntervalSince1970)
+    for s in second - 1...second + 2 {
+        try Data("taken".utf8).write(to: dir.appendingPathComponent("todos.corrupt-\(s).json"))
+    }
+    TodoStore(url: url).add("new", day: nil, minute: nil)
+    let files = try FileManager.default.contentsOfDirectory(atPath: dir.path)
+    let kept = try files.filter { try String(contentsOf: dir.appendingPathComponent($0), encoding: .utf8) == "broken" }
+    #expect(kept.count == 1)
+    #expect(try permissions(dir.appendingPathComponent(try #require(kept.first))) == 0o600)
+}

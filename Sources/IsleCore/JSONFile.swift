@@ -2,14 +2,20 @@ import Foundation
 
 /// One JSON file with the rules every Isle store needs: an atomic save, a backup of the file that loaded,
 /// an unreadable file kept aside and never overwritten, and owner-only permissions.
-struct JSONFile<Value: Codable> {
+final class JSONFile<Value: Codable> {
     let url: URL
+    /// Set when an unreadable file could not be moved aside. Then no save may replace it.
+    private var locked = false
+
+    init(url: URL) {
+        self.url = url
+    }
 
     private var folder: URL { url.deletingLastPathComponent() }
     private var stem: String { url.deletingPathExtension().lastPathComponent }
 
     /// Nil when there is no file. A file that does not decode moves aside as
-    /// "<stem>.corrupt-<unix time>.json", and the result is nil. A good file is copied to "<stem>.backup.json".
+    /// "<stem>.corrupt-<unix time>-<random>.json", and the result is nil. A good file is copied to "<stem>.backup.json".
     func load() -> Value? {
         guard FileManager.default.fileExists(atPath: url.path) else { return nil }
         do {
@@ -19,16 +25,25 @@ struct JSONFile<Value: Codable> {
             write(data, to: folder.appendingPathComponent("\(stem).backup.json"))
             return value
         } catch {
-            // Keep the unreadable file. A save must never overwrite the user's data.
-            let aside = folder.appendingPathComponent("\(stem).corrupt-\(Int(Date().timeIntervalSince1970)).json")
-            try? FileManager.default.moveItem(at: url, to: aside)
-            NSLog("Isle: could not read \(url.path) (\(error)). Moved it to \(aside.lastPathComponent).")
+            // Keep the unreadable file. A save must never overwrite the user's data. The random part keeps
+            // a name that is taken already from making the move fail.
+            let tag = UUID().uuidString.prefix(8)
+            let aside = folder.appendingPathComponent("\(stem).corrupt-\(Int(Date().timeIntervalSince1970))-\(tag).json")
+            do {
+                try FileManager.default.moveItem(at: url, to: aside)
+                try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: aside.path)
+                NSLog("Isle: could not read \(url.path) (\(error)). Moved it to \(aside.lastPathComponent).")
+            } catch {
+                locked = true
+                NSLog("Isle: could not read or move \(url.path) (\(error)). Isle will not save over it.")
+            }
             return nil
         }
     }
 
     /// Never throws: a failed save is logged, and the data stays in memory.
     func save(_ value: Value) {
+        guard !locked else { return }
         do {
             write(try Self.encoder.encode(value), to: url)
         } catch {

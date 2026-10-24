@@ -13,26 +13,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.mainMenu = Self.editMenu()
         panel = IslandPanel(model: model)
-        registerHotKey(id: 1, "⌃⌥T", keyCode: kVK_ANSI_T, modifiers: controlKey | optionKey) { [model] in model.hotKey() }
-        registerHotKey(id: 2, "⌃⌥N", keyCode: kVK_ANSI_N, modifiers: controlKey | optionKey) { [model] in model.noteHotKey() }
         let env = ProcessInfo.processInfo.environment
         if let dir = env["ISLE_SNAPSHOT"], let panel {
             Harness.snapshot(model: model, panel: panel, dir: URL(fileURLWithPath: dir))
         }
         if env["ISLE_SELFTEST"] != nil, let panel {
-            // The self-test adds tasks. It must never touch the user's real list.
-            guard env["ISLE_DATA"] != nil else {
-                print("ISLE_SELFTEST needs ISLE_DATA=<scratch file>. It never runs on your real list.")
-                exit(2)
-            }
             Harness.selfTest(model: model, panel: panel)
         }
         // After the harness, so a test run is isolated before the first tick can ask or write a setting.
         model.tick()
-        // A harness run calls `tick` itself. A clock would redraw the island at random moments in a run.
-        if env["ISLE_SNAPSHOT"] == nil && env["ISLE_SELFTEST"] == nil {
-            clock = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [model] _ in model.tick() }
-        }
+        // A harness run calls `tick` and the hot key actions itself. A clock would redraw the island at
+        // random moments, and the hot keys would take ⌃⌥T and ⌃⌥N from the installed Isle.
+        guard !Harness.isRunning else { return }
+        clock = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [model] _ in model.tick() }
+        registerHotKey(id: 1, "⌃⌥T", keyCode: kVK_ANSI_T, modifiers: controlKey | optionKey) { [model] in model.hotKey() }
+        registerHotKey(id: 2, "⌃⌥N", keyCode: kVK_ANSI_N, modifiers: controlKey | optionKey) { [model] in model.noteHotKey() }
     }
 
     /// An accessory app shows no menu bar, but its menu still gives text fields the standard keys.
