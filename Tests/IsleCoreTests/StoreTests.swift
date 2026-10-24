@@ -56,3 +56,24 @@ private func tempDir() -> URL {
     _ = TodoStore(url: dir.appendingPathComponent("todos.json"))
     #expect(!FileManager.default.fileExists(atPath: dir.appendingPathComponent("todos.backup.json").path))
 }
+
+@Test func batchAddKeepsOrderAfterAReload() throws {
+    let url = tempDir().appendingPathComponent("todos.json")
+    let store = TodoStore(url: url)
+    let added = store.add([Parsed(title: "c", day: "2026-10-02"), Parsed(title: " ", day: "2026-10-02"),
+                           Parsed(title: "a", day: "2026-10-02"), Parsed(title: "b", day: nil, minute: 600)], now: now)
+    #expect(added.map(\.title) == ["c", "a", "b"])
+    #expect(added.last?.minute == nil)
+    let reloaded = TodoStore(url: url).todos
+    #expect(Set(reloaded.map(\.created)).count == 3)  // still distinct after the file drops fractions
+    #expect(reloaded.todaySections(now, cal).anytime.map(\.title) == ["c", "a"])
+}
+
+@Test func batchDeleteRemovesOnlyThoseIds() throws {
+    let url = tempDir().appendingPathComponent("todos.json")
+    let store = TodoStore(url: url)
+    let added = store.add([Parsed(title: "x"), Parsed(title: "y"), Parsed(title: "z")], now: now)
+    let removed = store.delete(Set(added.prefix(2).map(\.id)))
+    #expect(Set(removed.map(\.title)) == ["x", "y"])
+    #expect(TodoStore(url: url).todos.map(\.title) == ["z"])
+}
