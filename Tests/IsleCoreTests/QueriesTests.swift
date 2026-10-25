@@ -65,3 +65,14 @@ import Testing
     #expect(Day.weekend(after: now, cal) == "2026-10-03")
     #expect(Day.minute(of: now, cal) == 770)
 }
+
+@Test func aTimedTaskIsSoonWithinTheHour() {
+    // `now` is 12:50 (minute 770).
+    #expect([todo("standup", "2026-10-02", 800)].timedSoon(now, cal))
+    #expect([todo("standup", "2026-10-02", 830)].timedSoon(now, cal))
+    #expect(![todo("standup", "2026-10-02", 831)].timedSoon(now, cal))
+    #expect(![todo("anytime", "2026-10-02")].timedSoon(now, cal))
+    #expect(![todo("done", "2026-10-02", 800, doneAt: now)].timedSoon(now, cal))
+    #expect(![todo("tomorrow", "2026-10-03", 780)].timedSoon(now, cal))
+    #expect(![todo("past", "2026-10-02", 700)].timedSoon(now, cal))
+}

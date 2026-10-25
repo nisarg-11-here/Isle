@@ -12,8 +12,10 @@ island drops down and asks if it is done.
 
 ## What it does
 
-- **Lives in the notch.** When closed, the island hides in the notch. Two small wings show today's
-  progress ring and the time of your next task.
+- **Lives in the notch.** When closed, the island is the notch itself, so it covers none of your app's
+  menus. In the last hour before a timed task, two small wings appear beside the notch with today's
+  progress ring and the minutes left. Turn on **Always show progress beside the notch** in settings to
+  keep the wings at all times.
 - **Peeks on hover.** Point at the notch to see the next task. Click to open.
 - **Quick add with plain words or chips.** The trailing words of a task set its day and time. While you
   type, day and time chips appear under the field. A chip writes its words into the field, so you
@@ -168,9 +170,9 @@ ISLE_SNAPSHOT=$(mktemp -d) ISLE_DATA=$(mktemp -d)/t.json swift run Isle         
 
 Your tasks live in `~/Library/Application Support/Isle/todos.json`, beside `todos.backup.json`. Notes
 live in `notes.json` in the same folder. Isle makes these files readable by your account only. Notes are
-plain text on your disk: do not keep passwords in them. Time Machine backs up that folder. Settings live in `UserDefaults`: `theme`, `glassLook`,
-`reminderSound`, `morningPlan`, `planAskedDay` (the last day the morning question showed), and
-`planDoneDay` (the last day you added a plan or closed the Plan your day button).
+plain text on your disk: do not keep passwords in them. Time Machine backs up that folder. Settings
+live in `UserDefaults`: `theme`, `glassLook`, `reminderSound`, `morningPlan`, `alwaysShowWings`, `planAskedDay` (the last day the morning question
+showed), and `planDoneDay` (the last day you added a plan or closed the Plan your day button).
 
 ## Not yet
 

@@ -30,6 +30,7 @@ struct SettingsView: View {
             Separator()
             SettingRow("Reminder sound") { Switch(isOn: $model.reminderSound) }
             SettingRow("Morning plan") { Switch(isOn: $model.morningPlan) }
+            SettingRow("Always show progress beside the notch") { Switch(isOn: $model.alwaysShowWings) }
             SettingRow("Launch at login") {
                 Switch(isOn: $launchAtLogin)
                     .onChange(of: launchAtLogin) { _, on in

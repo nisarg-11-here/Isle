@@ -64,6 +64,12 @@ extension Array where Element == Todo {
         return todaySections(now, cal).timed.first { $0.minute! >= m }
     }
 
+    /// True when the next open timed task today is at most `minutes` away.
+    public func timedSoon(_ now: Date, within minutes: Int = 60, _ cal: Calendar = .current) -> Bool {
+        guard let minute = nextTimed(now, cal)?.minute else { return false }
+        return minute - Day.minute(of: now, cal) <= minutes
+    }
+
     /// Open timed tasks today whose time is in the last 5 minutes, now included.
     public func dueNow(_ now: Date, _ cal: Calendar = .current) -> [Todo] {
         let m = Day.minute(of: now, cal)

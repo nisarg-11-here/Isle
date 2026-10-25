@@ -476,6 +476,24 @@ enum Harness {
                 key(esc, 53)
                 model.planLines = [""]
                 model.close()
+                // The wings beside the notch cover app menus, so they show only when a timed task is near.
+                for task in model.store.todos where task.day == model.today && task.minute != nil && !task.isDone {
+                    model.store.update(task.id) { $0.minute = nil }
+                }
+                let notchOnly = model.notch.width + 12
+                expect(model.islandSize.width == notchOnly, "with no timed task near, the closed island is only the notch")
+                let soon = min(Day.minute(of: Date()) + 30, 24 * 60 - 1)
+                let standup = model.store.add("standup", day: model.today, minute: soon)
+                model.tick()
+                expect(model.islandSize.width == notchOnly + 2 * IslandModel.wing, "a timed task within the hour shows the wings")
+                if let standup { model.store.delete(standup.id) }
+                model.tick()
+                let saved = UserDefaults.standard.object(forKey: "alwaysShowWings") as? Bool
+                model.alwaysShowWings = true
+                expect(model.islandSize.width == notchOnly + 2 * IslandModel.wing, "the settings switch always shows the wings")
+                expect(UserDefaults.standard.object(forKey: "alwaysShowWings") as? Bool == saved,
+                       "an isolated run does not save the wings switch")
+                model.alwaysShowWings = false
                 print(failures == 0 ? "ALL PASS" : "\(failures) FAILED")
                 exit(failures == 0 ? 0 : 1)
             },
@@ -504,6 +522,7 @@ enum Harness {
         model.morningPlan = true
         model.planAskedDay = nil
         model.planDoneDay = nil
+        model.alwaysShowWings = false
         // A test run must never be the active app: the user's keys would land here. On macOS 27 a launch from
         // a shell activates the app, and `deactivate()` no longer gives it up. Hiding does, and the panel comes
         // back without activation.

@@ -66,7 +66,7 @@ struct ClosedView: View {
     @Environment(IslandModel.self) private var model
 
     var body: some View {
-        if model.progress.total > 0 {
+        if model.showsWings {
             HStack(spacing: 0) {
                 ProgressRing(progress: model.progress)
                     .frame(width: 14, height: 14)

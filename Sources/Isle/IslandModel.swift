@@ -60,6 +60,11 @@ final class IslandModel {
     var planDoneDay = UserDefaults.standard.string(forKey: "planDoneDay") {
         didSet { remember(planDoneDay ?? "", "planDoneDay") }
     }
+    /// Off: the wings beside the notch show only when a timed task is within the hour, because they cover
+    /// the app menus next to the notch. On: they always show.
+    var alwaysShowWings = UserDefaults.standard.object(forKey: "alwaysShowWings") as? Bool ?? false {
+        didSet { remember(alwaysShowWings, "alwaysShowWings") }
+    }
     var morningPlan = UserDefaults.standard.object(forKey: "morningPlan") as? Bool ?? true {
         didSet { remember(morningPlan, "morningPlan") }
     }
@@ -100,6 +105,8 @@ final class IslandModel {
     var sections: TodaySections { store.todos.todaySections(now) }
     var progress: DayProgress { store.todos.progress(now) }
     var next: Todo? { store.todos.nextTimed(now) }
+    /// The progress ring and the countdown beside the notch, on the closed island.
+    var showsWings: Bool { progress.total > 0 && (alwaysShowWings || store.todos.timedSoon(now)) }
     var plan: Parsed { QuickParse.plan(draft, bucket: bucket, now: now) }
     /// The tasks the plan page will add.
     var planned: [Parsed] { QuickParse.planLines(planLines, now: now) }
@@ -112,7 +119,7 @@ final class IslandModel {
     var islandSize: CGSize {
         switch mode {
         case .closed:
-            CGSize(width: notch.width + 12 + (progress.total > 0 ? 2 * Self.wing : 0), height: notch.height)
+            CGSize(width: notch.width + 12 + (showsWings ? 2 * Self.wing : 0), height: notch.height)
         case .peek:
             CGSize(width: notch.width + 200, height: notch.height + 30)
         case .open:
