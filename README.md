@@ -170,9 +170,11 @@ ISLE_SNAPSHOT=$(mktemp -d) ISLE_DATA=$(mktemp -d)/t.json swift run Isle         
 
 Your tasks live in `~/Library/Application Support/Isle/todos.json`, beside `todos.backup.json`. Notes
 live in `notes.json` in the same folder. Isle makes these files readable by your account only. Notes are
-plain text on your disk: do not keep passwords in them. Time Machine backs up that folder. Settings
-live in `UserDefaults`: `theme`, `glassLook`, `reminderSound`, `morningPlan`, `alwaysShowWings`, `planAskedDay` (the last day the morning question
-showed), and `planDoneDay` (the last day you added a plan or closed the Plan your day button).
+plain text on your disk: do not keep passwords in them. Time Machine backs up that folder.
+
+Settings live in `UserDefaults`: `theme`, `glassLook`, `reminderSound`, `morningPlan`, `alwaysShowWings`,
+`planAskedDay` (the last day the morning question showed), and `planDoneDay` (the last day you added a
+plan or closed the Plan your day button).
 
 ## Not yet
 
