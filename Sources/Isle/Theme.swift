@@ -12,6 +12,12 @@ extension Color {
     static let isleRed = Color(red: 1.0, green: 0.27, blue: 0.23)
     static let islePurple = Color(red: 0.75, green: 0.35, blue: 0.95)
     static let isleBlue = Color(red: 0.25, green: 0.6, blue: 1.0)
+    /// The Notes color. On light glass a darker yellow keeps it legible.
+    static let isleYellow = Color(nsColor: NSColor(name: nil) {
+        $0.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            ? NSColor(srgbRed: 1.0, green: 0.84, blue: 0.04, alpha: 1)
+            : NSColor(srgbRed: 0.66, green: 0.50, blue: 0, alpha: 1)
+    })
 }
 
 extension Color {

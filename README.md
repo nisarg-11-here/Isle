@@ -19,7 +19,8 @@ island drops down and asks if it is done.
   type, day and time chips appear under the field. A chip writes its words into the field, so you
   always see what the task gets, and a tag at the right shows where it will go.
 - **Three lists.** *Today* (with overdue tasks and a "now" line), *Upcoming* (grouped by day), and
-  *Backlog* (no date yet).
+  *Backlog* (no date yet). Each tab is an icon in its list's color
+  (orange, blue, purple, and yellow for Notes). The open tab also shows its name.
 - **Plan your day.** Press ⌘P or click the pencil in the header. Write one task on each line, from the
   top of your head, and press ⌘Return to add them all, in order. Return starts a new line, ↑ and ↓ move
   between lines, and a list marker such as `- ` or `1. ` is dropped. The time words still work:

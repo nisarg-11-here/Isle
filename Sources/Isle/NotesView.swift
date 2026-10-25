@@ -48,7 +48,7 @@ private struct NoteList: View {
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 2) {
                     if notes.isEmpty {
-                        EmptyState(icon: "note.text", tint: .isleBlue,
+                        EmptyState(icon: "doc.plaintext", tint: .isleYellow,
                                    title: model.noteQuery.isEmpty ? "No notes yet" : "No notes match “\(model.noteQuery)”",
                                    subtitle: "Press ⌘N, or ⌃⌥N from any app.")
                     } else {
@@ -73,7 +73,7 @@ private struct NoteRow: View {
     var body: some View {
         Button { model.openNote(note.id) } label: {
             HStack(spacing: 10) {
-                Image(systemName: note.day == nil ? "note.text" : "sun.max.fill")
+                Image(systemName: note.day == nil ? "doc.plaintext" : "sun.max.fill")
                     .font(.system(size: 11))
                     .foregroundStyle(note.day == nil ? Color.ink.opacity(0.35) : .isleOrange)
                     .frame(width: 18)

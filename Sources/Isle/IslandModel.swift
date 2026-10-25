@@ -79,8 +79,8 @@ final class IslandModel {
 
     static let wing: CGFloat = 44
     static let openMaxHeight: CGFloat = 480
-    /// Width the open island adds to the notch: room for four tabs on the left.
-    static let openWidth: CGFloat = 540
+    /// Width the open island adds to the notch. Icon tabs leave room for four tabs at the first width.
+    static let openWidth: CGFloat = 460
     /// A paste of thousands of lines must not make thousands of fields.
     static let planLineLimit = 100
 

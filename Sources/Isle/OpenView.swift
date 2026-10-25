@@ -3,6 +3,9 @@ import SwiftUI
 
 extension Bucket {
     var title: String { ["Today", "Upcoming", "Backlog"][rawValue] }
+    var icon: String { ["sun.max", "calendar", "tray"][rawValue] }
+    /// The same colors as the chips that say where a task goes.
+    var tint: Color { [.isleOrange, .isleBlue, .islePurple][rawValue] }
     var prompt: String {
         ["Add to today — try “groceries 5pm”", "Plan ahead — try “dentist fri 3pm”", "Someday… — try “learn Rust”"][rawValue]
     }
@@ -56,7 +59,7 @@ struct BucketTabs: View {
     var body: some View {
         HStack(spacing: 2) {
             ForEach(Bucket.allCases, id: \.self) { b in
-                tab(b.title, on: model.page == .tasks && model.bucket == b) {
+                TabPill(title: b.title, icon: b.icon, tint: b.tint, on: model.page == .tasks && model.bucket == b, pill: pill) {
                     withAnimation(.snappy) {
                         model.bucket = b
                         model.page = .tasks
@@ -64,24 +67,47 @@ struct BucketTabs: View {
                 }
                 .keyboardShortcut(KeyEquivalent(Character("\(b.rawValue + 1)")), modifiers: .command)
             }
-            tab("Notes", on: model.page == .notes) { model.showNotes() }
-                .keyboardShortcut("4", modifiers: .command)
+            TabPill(title: "Notes", icon: "doc.plaintext", tint: .isleYellow, on: model.page == .notes, pill: pill) {
+                withAnimation(.snappy) { model.showNotes() }
+            }
+            .keyboardShortcut("4", modifiers: .command)
         }
     }
+}
 
-    private func tab(_ title: String, on: Bool, action: @escaping () -> Void) -> some View {
+/// A tab: its icon, and on the open tab also its name, in a pill of the list's color.
+private struct TabPill: View {
+    let title: String
+    let icon: String
+    let tint: Color
+    let on: Bool
+    let pill: Namespace.ID
+    let action: () -> Void
+    @State private var hover = false
+
+    var body: some View {
         Button(action: action) {
-            Text(title)
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(on ? Color.ink : Color.ink.opacity(0.45))
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background {
-                    if on { Capsule().fill(Color.ink.opacity(0.14)).matchedGeometryEffect(id: "pill", in: pill) }
+            HStack(spacing: 5) {
+                Image(systemName: icon).font(.system(size: 12, weight: .semibold))
+                if on {
+                    Text(title)
+                        .font(.system(size: 12, weight: .semibold))
+                        .fixedSize()
+                        .transition(.opacity.combined(with: .scale(scale: 0.8, anchor: .leading)))
                 }
-                .contentShape(Capsule())
+            }
+            .foregroundStyle(on ? tint : Color.ink.opacity(hover ? 0.75 : 0.45))
+            .padding(.horizontal, on ? 9 : 7)
+            .padding(.vertical, 4)
+            .background {
+                if on { Capsule().fill(tint.opacity(0.18)).matchedGeometryEffect(id: "pill", in: pill) }
+            }
+            .contentShape(Capsule())
         }
         .buttonStyle(.plain)
+        .help(title)
+        .accessibilityLabel(title)
+        .onHover { hover = $0 }
     }
 }
 
