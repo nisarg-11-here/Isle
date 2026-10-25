@@ -3,10 +3,29 @@ import SwiftUI
 
 extension Color {
     static let isleGreen = Color(red: 0.19, green: 0.82, blue: 0.35)
-    static let isleOrange = Color(red: 1.0, green: 0.62, blue: 0.04)
+    /// The dark value is the original. On light glass a darker orange keeps times legible (about 4:1).
+    static let isleOrange = Color(nsColor: NSColor(name: nil) {
+        $0.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            ? NSColor(srgbRed: 1.0, green: 0.62, blue: 0.04, alpha: 1)
+            : NSColor(srgbRed: 0.78, green: 0.40, blue: 0, alpha: 1)
+    })
     static let isleRed = Color(red: 1.0, green: 0.27, blue: 0.23)
     static let islePurple = Color(red: 0.75, green: 0.35, blue: 0.95)
     static let isleBlue = Color(red: 0.25, green: 0.6, blue: 1.0)
+    /// The Notes color. On light glass a darker yellow keeps it legible.
+    static let isleYellow = Color(nsColor: NSColor(name: nil) {
+        $0.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            ? NSColor(srgbRed: 1.0, green: 0.84, blue: 0.04, alpha: 1)
+            : NSColor(srgbRed: 0.66, green: 0.50, blue: 0, alpha: 1)
+    })
+}
+
+extension Color {
+    /// White in the dark scheme, black in the light one. Standard is always dark, so it keeps its exact whites.
+    /// (`Color.primary` is the label color at 85 % opacity, so it would dim Standard.)
+    static let ink = Color(nsColor: NSColor(name: nil) { $0.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? .white : .black })
+    /// The opposite of ink: text on an ink-filled chip or button.
+    static let inkInverse = Color(nsColor: NSColor(name: nil) { $0.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? .black : .white })
 }
 
 extension Animation {
@@ -48,6 +67,18 @@ struct NotchShape: Shape {
     }
 }
 
+/// Liquid Glass in the island shape (Apple: apply `glassEffect` after other appearance modifiers).
+/// The Glass theme exists only on macOS 26 (`IslandTheme.isGlass`), so the else branch never draws.
+struct GlassFill<S: Shape>: View {
+    let shape: S
+
+    var body: some View {
+        if #available(macOS 26.0, *) {
+            Color.clear.glassEffect(.regular, in: shape)
+        }
+    }
+}
+
 struct ProgressRing: View {
     let progress: DayProgress
     var lineWidth: CGFloat = 2.5
@@ -55,7 +86,7 @@ struct ProgressRing: View {
     var body: some View {
         let f = progress.total == 0 ? 0 : CGFloat(progress.done) / CGFloat(progress.total)
         ZStack {
-            Circle().stroke(.white.opacity(0.15), lineWidth: lineWidth)
+            Circle().stroke(Color.ink.opacity(0.15), lineWidth: lineWidth)
             Circle()
                 .trim(from: 0, to: f)
                 .stroke(Color.isleGreen, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
@@ -72,7 +103,7 @@ struct CheckCircle: View {
     var body: some View {
         Button(action: action) {
             ZStack {
-                Circle().strokeBorder(.white.opacity(done ? 0 : 0.35), lineWidth: 1.5)
+                Circle().strokeBorder(Color.ink.opacity(done ? 0 : 0.35), lineWidth: 1.5)
                 Circle().fill(Color.isleGreen).scaleEffect(done ? 1 : 0.01)
                 Image(systemName: "checkmark")
                     .font(.system(size: 9, weight: .black))
@@ -103,10 +134,10 @@ struct Chip: View {
         Button(action: action) {
             Text(label)
                 .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(on ? Color.black : Color.white.opacity(0.75))
+                .foregroundStyle(on ? Color.inkInverse : Color.ink.opacity(0.75))
                 .padding(.horizontal, 9)
                 .frame(height: 22)
-                .background(Capsule().fill(on ? Color.white : Color.white.opacity(0.08)))
+                .background(Capsule().fill(on ? Color.ink : Color.ink.opacity(0.08)))
                 .contentShape(Capsule())
         }
         .buttonStyle(.plain)
@@ -116,7 +147,7 @@ struct Chip: View {
 struct IconButton: View {
     let icon: String
     let help: String
-    var tint: Color = .white
+    var tint: Color = .ink
     let action: () -> Void
     @State private var hover = false
 
@@ -126,12 +157,38 @@ struct IconButton: View {
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(tint.opacity(hover ? 1 : 0.6))
                 .frame(width: 24, height: 22)
-                .background(RoundedRectangle(cornerRadius: 6).fill(.white.opacity(hover ? 0.1 : 0)))
+                .background(RoundedRectangle(cornerRadius: 6).fill(Color.ink.opacity(hover ? 0.1 : 0)))
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .help(help)
         .onHover { hover = $0 }
+    }
+}
+
+/// "‹ Settings" or "‹ Plan" in the header, in place of the tabs.
+struct BackButton: View {
+    let title: String
+    let action: () -> Void
+
+    init(_ title: String, action: @escaping () -> Void) {
+        self.title = title
+        self.action = action
+    }
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                Image(systemName: "chevron.left").font(.system(size: 10, weight: .bold))
+                Text(title).font(.system(size: 12, weight: .semibold))
+            }
+            .foregroundStyle(Color.ink)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 4)
+            .background(Capsule().fill(Color.ink.opacity(0.14)))
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
     }
 }
 

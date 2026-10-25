@@ -56,3 +56,81 @@ private func tempDir() -> URL {
     _ = TodoStore(url: dir.appendingPathComponent("todos.json"))
     #expect(!FileManager.default.fileExists(atPath: dir.appendingPathComponent("todos.backup.json").path))
 }
+
+@Test func batchAddKeepsOrderAfterAReload() throws {
+    let url = tempDir().appendingPathComponent("todos.json")
+    let store = TodoStore(url: url)
+    let added = store.add([Parsed(title: "c", day: "2026-10-02"), Parsed(title: " ", day: "2026-10-02"),
+                           Parsed(title: "a", day: "2026-10-02"), Parsed(title: "b", day: nil, minute: 600)], now: now)
+    #expect(added.map(\.title) == ["c", "a", "b"])
+    #expect(added.last?.minute == nil)
+    let reloaded = TodoStore(url: url).todos
+    #expect(Set(reloaded.map(\.created)).count == 3)  // still distinct after the file drops fractions
+    #expect(reloaded.todaySections(now, cal).anytime.map(\.title) == ["c", "a"])
+}
+
+@Test func batchDeleteRemovesOnlyThoseIds() throws {
+    let url = tempDir().appendingPathComponent("todos.json")
+    let store = TodoStore(url: url)
+    let added = store.add([Parsed(title: "x"), Parsed(title: "y"), Parsed(title: "z")], now: now)
+    let removed = store.delete(Set(added.prefix(2).map(\.id)))
+    #expect(Set(removed.map(\.title)) == ["x", "y"])
+    #expect(TodoStore(url: url).todos.map(\.title) == ["z"])
+}
+
+private func permissions(_ url: URL) throws -> Int {
+    try (FileManager.default.attributesOfItem(atPath: url.path)[.posixPermissions] as? NSNumber)?.intValue ?? -1
+}
+
+@Test func savedFilesAreOwnerOnly() throws {
+    let dir = tempDir()
+    let url = dir.appendingPathComponent("todos.json")
+    TodoStore(url: url).add("secret", day: nil, minute: nil)
+    _ = TodoStore(url: url)  // a relaunch writes the backup
+    #expect(try permissions(url) == 0o600)
+    #expect(try permissions(dir.appendingPathComponent("todos.backup.json")) == 0o600)
+    #expect(try permissions(dir) == 0o700)  // the store made this folder
+}
+
+@Test func anExistingFolderKeepsItsPermissions() throws {
+    let dir = tempDir()
+    try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true,
+                                            attributes: [.posixPermissions: 0o755])
+    TodoStore(url: dir.appendingPathComponent("t.json")).add("x", day: nil, minute: nil)
+    #expect(try permissions(dir) == 0o755)
+}
+
+@Test func aCorruptFileOfAnyNameIsKeptAside() throws {
+    let dir = tempDir()
+    try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    let url = dir.appendingPathComponent("notes.json")
+    try Data("{".utf8).write(to: url)
+    #expect(JSONFile<[Note]>(url: url).load() == nil)
+    let files = try FileManager.default.contentsOfDirectory(atPath: dir.path)
+    #expect(files.contains { $0.hasPrefix("notes.corrupt-") })
+    #expect(!files.contains("notes.json"))
+}
+
+@Test func onlyTheDefaultFolderIsTheRealOne() {
+    let real = TodoStore.defaultURL.deletingLastPathComponent()
+    #expect(TodoStore.isInRealFolder(real.appendingPathComponent("t.json")))
+    #expect(TodoStore.isInRealFolder(real.appendingPathComponent("x/../t.json")))
+    #expect(!TodoStore.isInRealFolder(tempDir().appendingPathComponent("t.json")))
+}
+
+@Test func aCorruptFileIsKeptEvenWhenItsAsideNameIsTaken() throws {
+    let dir = tempDir()
+    try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    let url = dir.appendingPathComponent("todos.json")
+    try Data("broken".utf8).write(to: url)
+    // The names a move aside in the next few seconds would pick are taken already.
+    let second = Int(Date().timeIntervalSince1970)
+    for s in second - 1...second + 2 {
+        try Data("taken".utf8).write(to: dir.appendingPathComponent("todos.corrupt-\(s).json"))
+    }
+    TodoStore(url: url).add("new", day: nil, minute: nil)
+    let files = try FileManager.default.contentsOfDirectory(atPath: dir.path)
+    let kept = try files.filter { try String(contentsOf: dir.appendingPathComponent($0), encoding: .utf8) == "broken" }
+    #expect(kept.count == 1)
+    #expect(try permissions(dir.appendingPathComponent(try #require(kept.first))) == 0o600)
+}

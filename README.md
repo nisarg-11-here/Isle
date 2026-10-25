@@ -12,19 +12,42 @@ island drops down and asks if it is done.
 
 ## What it does
 
-- **Lives in the notch.** When closed, the island hides in the notch. Two small wings show today's
-  progress ring and the time of your next task.
+- **Lives in the notch.** When closed, the island is the notch itself, so it covers none of your app's
+  menus. In the last hour before a timed task, two small wings appear beside the notch with today's
+  progress ring and the minutes left. Turn on **Always show progress beside the notch** in settings to
+  keep the wings at all times.
 - **Peeks on hover.** Point at the notch to see the next task. Click to open.
 - **Quick add with plain words or chips.** The trailing words of a task set its day and time. While you
   type, day and time chips appear under the field. A chip writes its words into the field, so you
   always see what the task gets, and a tag at the right shows where it will go.
 - **Three lists.** *Today* (with overdue tasks and a "now" line), *Upcoming* (grouped by day), and
-  *Backlog* (no date yet).
-- **Plan in two clicks.** Hover a row and click ☀︎ to move it to today. Click the calendar to pick a day
+  *Backlog* (no date yet). Each tab is an icon in its list's color
+  (orange, blue, purple, and yellow for Notes). The open tab also shows its name.
+- **Plan your day.** Press ⌘P or click the pencil in the header. Write one task on each line, from the
+  top of your head, and press ⌘Return to add them all, in order. Return starts a new line, ↑ and ↓ move
+  between lines, and a list marker such as `- ` or `1. ` is dropped. The time words still work:
+  `call mom 6pm`. The open tasks already on Today show on one line, so you do not write them twice.
+  One Undo removes the whole plan.
+- **A morning question.** Once a day, the first time you use the Mac after 5 AM, the island drops down
+  with "Good morning. Plan your Friday?" and the buttons **Later** and **Plan**. It does not take the
+  keyboard from your app. It does not come after 6 PM, after you already planned, or while a reminder
+  is due. Turn it off in settings with **Morning plan**. If you miss it or click **Later**, Today keeps a
+  **Plan your day** button at the top until you add a plan, or click its × for "not today".
+- **Notes.** A Notes tab (⌘4) holds free notes and your day notes, newest first, with a search field.
+  ⌘N makes a note, and ⌃⌥N makes one from any app. Under the plan, a **Note for today** holds what is
+  not a task; Tab on the last plan line moves into it. A task can hold a note too: hover it and click
+  the note button, or right-click and choose **Add Note**. A small icon shows which tasks have one.
+  Notes are plain text and save as you type. A note you leave empty goes away.
+- **Move a task in two clicks.** Hover a row and click ☀︎ to move it to today. Click the calendar to pick a day
   chip, a time chip, or type a phrase like `fri 4pm`. Click **Done**, or press Return or Esc, to close it.
 - **Rename in place.** Click a title to edit it. Return or a click elsewhere saves. Esc cancels.
 - **Reminders in the island.** At a task's time, the island expands with **Done** and **Snooze 10m**.
 - **Undo.** A delete, or a move that takes a task out of the list, shows a short undo bar.
+- **Two themes.** *Standard* is the black island. *Glass* uses Apple's Liquid Glass for the peek, the
+  open island, and reminders, in a System, Light, or Dark look. The closed island stays black in both,
+  so it still hides in the notch.
+- **Settings in the island.** Click the gear or press ⌘, to pick a theme, turn the reminder sound and
+  the morning question on or off, and start Isle at login.
 - **Local and private.** Tasks stay in one JSON file on your Mac. No account, no network.
 
 | Closed | Peek | Reminder |
@@ -58,13 +81,19 @@ Isle reads only the **last words** of a task, so "Monday night football" stays a
 |---|---|
 | ⌃⌥T | Open the island with the add field focused. Press again to close. |
 | Return | Add the task. |
-| ⌘1 / ⌘2 / ⌘3 | Today / Upcoming / Backlog |
-| Esc | Cancel the edit, clear the field, then close. |
+| ⌃⌥N | New note, from any app. Press again to close. |
+| ⌘1 / ⌘2 / ⌘3 / ⌘4 | Today / Upcoming / Backlog / Notes |
+| ⌘N | On the Notes tab: a new note. |
+| ⌘P | Plan your day. Press again to go back to the list. |
+| ⌘Return | On the plan page: add every line as a task. |
+| ⌘, | Settings |
+| Esc | Close an edit or a note, leave the plan or settings page, clear the field, then close. The plan you typed stays. |
 | Right-click | Launch at Login, Show Data File, Quit. |
 
 ## Install
 
-You need macOS 14 or later and Xcode 16 or later.
+You need Xcode 26 or later to build (Liquid Glass needs the macOS 26 SDK). Isle runs on macOS 14 or
+later. The Glass theme needs macOS 26; on earlier systems, settings offer only Standard.
 
 ```sh
 git clone https://github.com/nisarg-11-here/Isle.git
@@ -84,15 +113,22 @@ Sources/
   IsleCore/        Foundation only, fully unit tested
     Todo.swift         the model and "yyyy-MM-dd" day keys
     Queries.swift      today / upcoming / backlog / progress / next / due
-    QuickParse.swift   "dentist fri 3:30pm" → title, day, minute
+    QuickParse.swift   "dentist fri 3:30pm" → title, day, minute; a plan of many lines
+    Morning.swift      when to ask "Plan your day?"
     Format.swift       "Tomorrow", "Fri, Oct 9 · 3:30 PM"
     TodoStore.swift    @Observable list, saved as JSON after each change
+    Note.swift         free, day, and task notes, and their search
+    JSONFile.swift     atomic saves, backups, a corrupt file kept aside, owner-only files
   Isle/            AppKit + SwiftUI
     IslandPanel.swift  borderless NSPanel over the notch
-    IslandModel.swift  modes (closed, peek, open, alert), focus, undo
-    IslandView.swift   island shape, wings, peek, reminder
+    IslandModel.swift  modes (closed, peek, open, alert, morning), focus, undo, the plan draft
+    IslandView.swift   island shape, wings, peek, reminder, morning question
     OpenView.swift     tabs, add field, lists
+    PlanView.swift     the plan page and its day note
+    NotesView.swift    the Notes tab and the note editor
     TaskRow.swift      rows and the schedule editor
+    SettingsView.swift themes, glass look, sound, launch at login
+    Settings.swift     theme and settings types
     Harness.swift      snapshot and self-test modes for development
 ```
 
@@ -104,27 +140,41 @@ Some details that took more than one try:
   jump.
 - **Focus.** A click reaches the non-activating panel without taking focus from your app. Only the
   hotkey activates Isle, and closing hands focus back to the app you were in.
+- **One palette for black and glass.** Every view draws with `Color.ink`: white in the dark scheme, black
+  in the light one. `Color.primary` would not do, because it is the label color at 85 % opacity and would
+  dim the Standard theme. A pixel diff proved Standard did not change.
+- **Liquid Glass.** Glass uses `glassEffect(.regular, in: NotchShape)` on macOS 26, after Apple's
+  "Applying Liquid Glass to custom views". The Glass theme tile
+  uses a material, not glass, because Apple advises against glass on glass. On glass, the island sits
+  on a 1 % black fill: the window server sends a click on a fully transparent pixel to the window
+  below, and Liquid Glass leaves the island's own pixels transparent.
 - **Floating days.** A task stores its day as a local `yyyy-MM-dd` key and its time as minutes after
   midnight. 5 PM stays 5 PM when you change time zones.
 - **Safe storage.** Isle saves after every change with an atomic write, so a crash cannot leave half a
   file. On each launch it copies the file that loaded to `todos.backup.json`. If `todos.json` does not
-  decode, Isle moves it aside as `todos.corrupt-<time>.json` and starts empty. Quit Isle before you
-  edit the file by hand, or the next save replaces your edit.
+  decode, Isle moves it aside as `todos.corrupt-<time>.json` and starts empty. `notes.json` follows the
+  same rules. Quit Isle before you edit a file by hand, or the next save replaces your edit.
 
 ## Develop
 
 ```sh
 swift test                                   # parser, queries, and store
-ISLE_SELFTEST=1 ISLE_DATA=/tmp/t.json swift run Isle   # drives the panel with real key events
-ISLE_SNAPSHOT=/tmp/shots swift run Isle      # saves a PNG of each island state
+ISLE_SELFTEST=1 ISLE_DATA=$(mktemp -d)/t.json swift run Isle                      # drives the panel with real key events
+ISLE_SNAPSHOT=$(mktemp -d) ISLE_DATA=$(mktemp -d)/t.json swift run Isle            # saves a PNG of each island state
 ```
 
-- `ISLE_DATA` points Isle at another data file, so tests and demos never touch your list.
+- `ISLE_DATA` points Isle at another data file. Notes go beside it. Both test modes need it in a scratch
+  folder and refuse your real data folder, so a test never touches your tasks or notes.
 - The harness modes run the panel invisibly and ignore your pointer, so you can keep working.
 - `swift Scripts/make-icon.swift` redraws the app icon.
 
-Your tasks live in `~/Library/Application Support/Isle/todos.json`, beside `todos.backup.json`.
-Time Machine backs up that folder.
+Your tasks live in `~/Library/Application Support/Isle/todos.json`, beside `todos.backup.json`. Notes
+live in `notes.json` in the same folder. Isle makes these files readable by your account only. Notes are
+plain text on your disk: do not keep passwords in them. Time Machine backs up that folder.
+
+Settings live in `UserDefaults`: `theme`, `glassLook`, `reminderSound`, `morningPlan`, `alwaysShowWings`,
+`planAskedDay` (the last day the morning question showed), and `planDoneDay` (the last day you added a
+plan or closed the Plan your day button).
 
 ## Not yet
 

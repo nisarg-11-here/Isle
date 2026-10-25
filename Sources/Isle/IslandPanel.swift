@@ -1,4 +1,5 @@
 import AppKit
+import Carbon.HIToolbox
 import SwiftUI
 
 /// A borderless panel over the notch. Its frame follows the island, so it never
@@ -38,10 +39,16 @@ final class IslandPanel: NSPanel {
         orderFrontRegardless()
     }
 
-    override var canBecomeKey: Bool { true }
+    /// A test run's panel never takes the keyboard, so the user's keys never land in it.
+    override var canBecomeKey: Bool { !model.isolated }
     override var canBecomeMain: Bool { false }
 
     override func cancelOperation(_ sender: Any?) { model.escape() }
+
+    /// Esc with no text field focused, as on the settings page. macOS 27 no longer turns it into `cancelOperation`.
+    override func keyDown(with event: NSEvent) {
+        if Int(event.keyCode) == kVK_Escape { model.escape() } else { super.keyDown(with: event) }
+    }
 
     override func resignKey() {
         super.resignKey()

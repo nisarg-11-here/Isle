@@ -3,6 +3,9 @@ import SwiftUI
 
 extension Bucket {
     var title: String { ["Today", "Upcoming", "Backlog"][rawValue] }
+    var icon: String { ["sun.max", "calendar", "tray"][rawValue] }
+    /// The same colors as the chips that say where a task goes.
+    var tint: Color { [.isleOrange, .isleBlue, .islePurple][rawValue] }
     var prompt: String {
         ["Add to today — try “groceries 5pm”", "Plan ahead — try “dentist fri 3pm”", "Someday… — try “learn Rust”"][rawValue]
     }
@@ -15,14 +18,28 @@ struct OpenView: View {
         let side = (model.islandSize.width - model.notch.width) / 2 - 20
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 0) {
-                BucketTabs().frame(width: side, alignment: .leading)
+                Group {
+                    switch model.page {
+                    case .tasks, .notes: BucketTabs()
+                    case .settings: BackButton("Settings") { model.toggleSettings() }
+                    case .plan: BackButton("Plan") { model.togglePlan() }
+                    }
+                }
+                .frame(width: side, alignment: .leading)
                 Color.clear.frame(width: model.notch.width)
                 HeaderInfo().frame(width: side, alignment: .trailing)
             }
             .frame(height: model.notch.height)
-            AddField()
-            TaskList()
-            if let toast = model.toast {
+            switch model.page {
+            case .tasks:
+                AddField()
+                TaskList()
+            case .settings: SettingsView().transition(.opacity)
+            case .plan: PlanView().transition(.opacity)
+            case .notes: NotesView().transition(.opacity)
+            }
+            // The plan page lists tasks too ("Already on Today"), so its deletes and moves need the undo bar.
+            if let toast = model.toast, model.page != .settings {
                 ToastBar(toast: toast).transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
@@ -39,27 +56,70 @@ struct BucketTabs: View {
     @Environment(IslandModel.self) private var model
     @Namespace private var pill
 
+    /// The three lists, then Notes as tab 4. ⌘1 to ⌘4 select them.
+    private static let tabs: [(title: String, icon: String, tint: Color)] =
+        Bucket.allCases.map { ($0.title, $0.icon, $0.tint) } + [("Notes", "note.text", .isleYellow)]
+
     var body: some View {
         HStack(spacing: 2) {
-            ForEach(Bucket.allCases, id: \.self) { b in
-                let on = model.bucket == b
-                Button {
-                    withAnimation(.snappy) { model.bucket = b }
-                } label: {
-                    Text(b.title)
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(on ? Color.white : Color.white.opacity(0.45))
-                        .padding(.horizontal, 9)
-                        .padding(.vertical, 4)
-                        .background {
-                            if on { Capsule().fill(.white.opacity(0.14)).matchedGeometryEffect(id: "pill", in: pill) }
-                        }
-                        .contentShape(Capsule())
-                }
-                .buttonStyle(.plain)
-                .keyboardShortcut(KeyEquivalent(Character("\(b.rawValue + 1)")), modifiers: .command)
+            ForEach(Self.tabs.indices, id: \.self) { i in
+                let tab = Self.tabs[i]
+                TabPill(title: tab.title, icon: tab.icon, tint: tab.tint, on: isOn(i), pill: pill) { select(i) }
+                    .keyboardShortcut(KeyEquivalent(Character("\(i + 1)")), modifiers: .command)
             }
         }
+    }
+
+    private func isOn(_ i: Int) -> Bool {
+        guard let bucket = Bucket(rawValue: i) else { return model.page == .notes }
+        return model.page == .tasks && model.bucket == bucket
+    }
+
+    private func select(_ i: Int) {
+        withAnimation(.snappy) {
+            if let bucket = Bucket(rawValue: i) {
+                model.bucket = bucket
+                model.page = .tasks
+            } else {
+                model.showNotes()
+            }
+        }
+    }
+}
+
+/// A tab: its icon, and on the open tab also its name, in a pill of the list's color.
+private struct TabPill: View {
+    let title: String
+    let icon: String
+    let tint: Color
+    let on: Bool
+    let pill: Namespace.ID
+    let action: () -> Void
+    @State private var hover = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 5) {
+                Image(systemName: icon).font(.system(size: 12, weight: .semibold))
+                if on {
+                    Text(title)
+                        .font(.system(size: 12, weight: .semibold))
+                        .fixedSize()
+                        .transition(.opacity.combined(with: .scale(scale: 0.8, anchor: .leading)))
+                }
+            }
+            .foregroundStyle(on ? tint : Color.ink.opacity(hover ? 0.75 : 0.45))
+            .padding(.horizontal, on ? 9 : 7)
+            .padding(.vertical, 4)
+            .background {
+                if on { Capsule().fill(tint.opacity(0.18)).matchedGeometryEffect(id: "pill", in: pill) }
+            }
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .help(title)
+        .accessibilityLabel(title)
+        .onHover { hover = $0 }
     }
 }
 
@@ -71,11 +131,19 @@ struct HeaderInfo: View {
         HStack(spacing: 8) {
             Text(model.now.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()))
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.6))
+                .foregroundStyle(Color.ink.opacity(0.6))
             if p.total > 0 {
-                Text("\(p.done)/\(p.total)").font(.digits(11)).foregroundStyle(.white.opacity(0.45))
+                Text("\(p.done)/\(p.total)").font(.digits(11)).foregroundStyle(Color.ink.opacity(0.45))
                 ProgressRing(progress: p).frame(width: 14, height: 14)
             }
+            IconButton(icon: "square.and.pencil", help: "Plan your day: many tasks at once (⌘P)") {
+                model.togglePlan()
+            }
+            .keyboardShortcut("p", modifiers: .command)
+            IconButton(icon: model.page == .settings ? "gearshape.fill" : "gearshape", help: "Settings (⌘,)") {
+                model.toggleSettings()
+            }
+            .keyboardShortcut(",", modifiers: .command)
         }
     }
 }
@@ -107,8 +175,8 @@ struct AddField: View {
         return HStack(spacing: 8) {
             Image(systemName: "plus")
                 .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(.white.opacity(focused ? 0.8 : 0.4))
-            TextField("", text: $model.draft, prompt: Text(model.bucket.prompt).foregroundColor(.white.opacity(0.3)))
+                .foregroundStyle(Color.ink.opacity(focused ? 0.8 : 0.4))
+            TextField("", text: $model.draft, prompt: Text(model.bucket.prompt).foregroundColor(Color.ink.opacity(0.3)))
                 .textFieldStyle(.plain)
                 .font(.system(size: 13))
                 .focused($focused)
@@ -121,7 +189,7 @@ struct AddField: View {
         }
         .padding(.horizontal, 12)
         .frame(height: 36)
-        .background(RoundedRectangle(cornerRadius: 11).fill(.white.opacity(focused ? 0.1 : 0.06)))
+        .background(RoundedRectangle(cornerRadius: 11).fill(Color.ink.opacity(focused ? 0.1 : 0.06)))
     }
 
     private func focus() {
@@ -215,9 +283,12 @@ struct TodayRows: View {
         if s.isEmpty {
             let waiting = model.store.todos.backlog(model.now).count
             EmptyState(icon: "sun.max.fill", tint: .isleOrange, title: "Clear day",
-                       subtitle: "Add a task above, or pull one from the backlog.",
-                       action: waiting > 0 ? ("Open Backlog (\(waiting))", { model.bucket = .backlog }) : nil)
+                       subtitle: "Write what you want to get done today.",
+                       actions: [("Plan your day", { model.openPlan() })]
+                           + (waiting > 0 ? [("Open Backlog (\(waiting))", { model.bucket = .backlog })] : []))
         } else {
+            // An empty Today has its own Plan your day button in the empty state.
+            if model.showsPlanBanner { PlanBanner().transition(.opacity.combined(with: .move(edge: .top))) }
             let nowMinute = Day.minute(of: model.now)
             if !s.overdue.isEmpty {
                 SectionLabel("Overdue", tint: .isleRed)
@@ -235,6 +306,38 @@ struct TodayRows: View {
                 ForEach(s.done) { TaskRow(todo: $0) }
             }
         }
+    }
+}
+
+/// Plan your day, on Today until a plan is added or the button is closed for the day.
+struct PlanBanner: View {
+    @Environment(IslandModel.self) private var model
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Button { model.openPlan() } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "sun.max.fill")
+                        .font(.system(size: 12))
+                        .foregroundStyle(Color.isleOrange)
+                    Text("Plan your day")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Color.ink.opacity(0.92))
+                    Text("⌘P")
+                        .font(.digits(11))
+                        .foregroundStyle(Color.ink.opacity(0.4))
+                    Spacer(minLength: 0)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            IconButton(icon: "xmark", help: "Not today") { model.dismissPlanBanner() }
+        }
+        .padding(.leading, 10)
+        .padding(.trailing, 4)
+        .frame(height: 32)
+        .background(RoundedRectangle(cornerRadius: 9).fill(Color.isleOrange.opacity(0.12)))
+        .padding(.bottom, 4)
     }
 }
 
@@ -271,9 +374,9 @@ struct BacklogRows: View {
 
 struct SectionLabel: View {
     let text: String
-    var tint: Color = .white.opacity(0.35)
+    var tint: Color = Color.ink.opacity(0.35)
 
-    init(_ text: String, tint: Color = .white.opacity(0.35)) {
+    init(_ text: String, tint: Color = Color.ink.opacity(0.35)) {
         self.text = text
         self.tint = tint
     }
@@ -309,17 +412,21 @@ struct EmptyState: View {
     let tint: Color
     let title: String
     let subtitle: String
-    var action: (String, () -> Void)?
+    var actions: [(String, () -> Void)] = []
 
     var body: some View {
         VStack(spacing: 6) {
             Image(systemName: icon).font(.system(size: 20)).foregroundStyle(tint)
-            Text(title).font(.system(size: 13, weight: .semibold)).foregroundStyle(.white.opacity(0.9))
-            Text(subtitle).font(.system(size: 11)).foregroundStyle(.white.opacity(0.45))
-            if let action {
-                Button(action.0, action: action.1)
-                    .buttonStyle(PillButton(fill: .white.opacity(0.12), text: .white))
-                    .padding(.top, 4)
+            Text(title).font(.system(size: 13, weight: .semibold)).foregroundStyle(Color.ink.opacity(0.9))
+            Text(subtitle).font(.system(size: 11)).foregroundStyle(Color.ink.opacity(0.45))
+            if !actions.isEmpty {
+                HStack(spacing: 8) {
+                    ForEach(actions.indices, id: \.self) { i in
+                        Button(actions[i].0, action: actions[i].1)
+                            .buttonStyle(PillButton(fill: Color.ink.opacity(0.12), text: .ink))
+                    }
+                }
+                .padding(.top, 4)
             }
         }
         .frame(maxWidth: .infinity)
@@ -335,7 +442,7 @@ struct ToastBar: View {
         HStack {
             Text(toast.text)
                 .font(.system(size: 12))
-                .foregroundStyle(.white.opacity(0.8))
+                .foregroundStyle(Color.ink.opacity(0.8))
                 .lineLimit(1)
             Spacer()
             Button("Undo") { model.undoLast() }
@@ -345,6 +452,6 @@ struct ToastBar: View {
         }
         .padding(.horizontal, 12)
         .frame(height: 30)
-        .background(RoundedRectangle(cornerRadius: 10).fill(.white.opacity(0.08)))
+        .background(RoundedRectangle(cornerRadius: 10).fill(Color.ink.opacity(0.08)))
     }
 }
