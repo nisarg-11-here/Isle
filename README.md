@@ -29,7 +29,8 @@ island drops down and asks if it is done.
 - **A morning question.** Once a day, the first time you use the Mac after 5 AM, the island drops down
   with "Good morning. Plan your Friday?" and the buttons **Later** and **Plan**. It does not take the
   keyboard from your app. It does not come after 6 PM, after you already planned, or while a reminder
-  is due. Turn it off in settings with **Morning plan**.
+  is due. Turn it off in settings with **Morning plan**. If you miss it or click **Later**, Today keeps a
+  **Plan your day** button at the top until you add a plan, or click its × for "not today".
 - **Notes.** A Notes tab (⌘4) holds free notes and your day notes, newest first, with a search field.
   ⌘N makes a note, and ⌃⌥N makes one from any app. Under the plan, a **Note for today** holds what is
   not a task; Tab on the last plan line moves into it. A task can hold a note too: hover it and click
@@ -168,7 +169,8 @@ ISLE_SNAPSHOT=$(mktemp -d) ISLE_DATA=$(mktemp -d)/t.json swift run Isle         
 Your tasks live in `~/Library/Application Support/Isle/todos.json`, beside `todos.backup.json`. Notes
 live in `notes.json` in the same folder. Isle makes these files readable by your account only. Notes are
 plain text on your disk: do not keep passwords in them. Time Machine backs up that folder. Settings live in `UserDefaults`: `theme`, `glassLook`,
-`reminderSound`, `morningPlan`, and `planAskedDay` (the last day the morning question showed).
+`reminderSound`, `morningPlan`, `planAskedDay` (the last day the morning question showed), and
+`planDoneDay` (the last day you added a plan or closed the Plan your day button).
 
 ## Not yet
 

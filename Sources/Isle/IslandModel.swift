@@ -55,6 +55,11 @@ final class IslandModel {
     var planAskedDay = UserDefaults.standard.string(forKey: "planAskedDay") {
         didSet { remember(planAskedDay ?? "", "planAskedDay") }
     }
+    /// The day a plan was added or the Plan your day button was closed. Until then Today offers the button,
+    /// so a morning question that came and went unseen is not the only way in.
+    var planDoneDay = UserDefaults.standard.string(forKey: "planDoneDay") {
+        didSet { remember(planDoneDay ?? "", "planDoneDay") }
+    }
     var morningPlan = UserDefaults.standard.object(forKey: "morningPlan") as? Bool ?? true {
         didSet { remember(morningPlan, "morningPlan") }
     }
@@ -473,6 +478,13 @@ final class IslandModel {
 
     // MARK: Day plan
 
+    var showsPlanBanner: Bool { planDoneDay != today }
+
+    /// The × on the Plan your day button: not today.
+    func dismissPlanBanner() {
+        withAnimation(.snappy) { planDoneDay = today }
+    }
+
     /// Shows the plan page, and opens the island first if it is closed.
     func openPlan() {
         endEditing()
@@ -537,6 +549,7 @@ final class IslandModel {
             bucket = .today
         }
         planAskedDay = today
+        planDoneDay = today
         let ids = Set(added.map(\.id))
         showToast("Added \(added.count) \(added.count == 1 ? "task" : "tasks")") { [weak self] in
             _ = self?.store.delete(ids)

@@ -56,21 +56,33 @@ struct BucketTabs: View {
     @Environment(IslandModel.self) private var model
     @Namespace private var pill
 
+    /// The three lists, then Notes as tab 4. ⌘1 to ⌘4 select them.
+    private static let tabs: [(title: String, icon: String, tint: Color)] =
+        Bucket.allCases.map { ($0.title, $0.icon, $0.tint) } + [("Notes", "note.text", .isleYellow)]
+
     var body: some View {
         HStack(spacing: 2) {
-            ForEach(Bucket.allCases, id: \.self) { b in
-                TabPill(title: b.title, icon: b.icon, tint: b.tint, on: model.page == .tasks && model.bucket == b, pill: pill) {
-                    withAnimation(.snappy) {
-                        model.bucket = b
-                        model.page = .tasks
-                    }
-                }
-                .keyboardShortcut(KeyEquivalent(Character("\(b.rawValue + 1)")), modifiers: .command)
+            ForEach(Self.tabs.indices, id: \.self) { i in
+                let tab = Self.tabs[i]
+                TabPill(title: tab.title, icon: tab.icon, tint: tab.tint, on: isOn(i), pill: pill) { select(i) }
+                    .keyboardShortcut(KeyEquivalent(Character("\(i + 1)")), modifiers: .command)
             }
-            TabPill(title: "Notes", icon: "doc.plaintext", tint: .isleYellow, on: model.page == .notes, pill: pill) {
-                withAnimation(.snappy) { model.showNotes() }
+        }
+    }
+
+    private func isOn(_ i: Int) -> Bool {
+        guard let bucket = Bucket(rawValue: i) else { return model.page == .notes }
+        return model.page == .tasks && model.bucket == bucket
+    }
+
+    private func select(_ i: Int) {
+        withAnimation(.snappy) {
+            if let bucket = Bucket(rawValue: i) {
+                model.bucket = bucket
+                model.page = .tasks
+            } else {
+                model.showNotes()
             }
-            .keyboardShortcut("4", modifiers: .command)
         }
     }
 }
@@ -275,6 +287,8 @@ struct TodayRows: View {
                        actions: [("Plan your day", { model.openPlan() })]
                            + (waiting > 0 ? [("Open Backlog (\(waiting))", { model.bucket = .backlog })] : []))
         } else {
+            // An empty Today has its own Plan your day button in the empty state.
+            if model.showsPlanBanner { PlanBanner().transition(.opacity.combined(with: .move(edge: .top))) }
             let nowMinute = Day.minute(of: model.now)
             if !s.overdue.isEmpty {
                 SectionLabel("Overdue", tint: .isleRed)
@@ -292,6 +306,38 @@ struct TodayRows: View {
                 ForEach(s.done) { TaskRow(todo: $0) }
             }
         }
+    }
+}
+
+/// Plan your day, on Today until a plan is added or the button is closed for the day.
+struct PlanBanner: View {
+    @Environment(IslandModel.self) private var model
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Button { model.openPlan() } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "sun.max.fill")
+                        .font(.system(size: 12))
+                        .foregroundStyle(Color.isleOrange)
+                    Text("Plan your day")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Color.ink.opacity(0.92))
+                    Text("⌘P")
+                        .font(.digits(11))
+                        .foregroundStyle(Color.ink.opacity(0.4))
+                    Spacer(minLength: 0)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            IconButton(icon: "xmark", help: "Not today") { model.dismissPlanBanner() }
+        }
+        .padding(.leading, 10)
+        .padding(.trailing, 4)
+        .frame(height: 32)
+        .background(RoundedRectangle(cornerRadius: 9).fill(Color.isleOrange.opacity(0.12)))
+        .padding(.bottom, 4)
     }
 }
 

@@ -101,7 +101,8 @@ enum Harness {
             guard let e = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: flags, timestamp: 0,
                                            windowNumber: panel.windowNumber, context: nil, characters: chars,
                                            charactersIgnoringModifiers: chars, isARepeat: false, keyCode: code) else { return }
-            NSApp.sendEvent(e)
+            // Straight to the panel: it is never key in a test run, and the app drops keys for a window that is not.
+            panel.sendEvent(e)
         }
         func type(_ text: String) { text.forEach { key(String($0), 0) } }
         let up = String(UnicodeScalar(NSUpArrowFunctionKey)!), down = String(UnicodeScalar(NSDownArrowFunctionKey)!)
@@ -279,6 +280,13 @@ enum Harness {
                 expect(a?.day == model.today && a?.minute == nil && c?.day == model.today && c?.minute == 1080
                        && (a?.created ?? .distantFuture) < (c?.created ?? .distantPast)
                        && model.page == .tasks && model.planLines == [""], "⌘Return adds the plan in order")
+                expect(!model.showsPlanBanner, "an added plan hides the Plan your day button")
+                // The morning question came and went unseen: Today keeps a way in until the plan is done.
+                model.planDoneDay = nil  // isolated: not saved
+                expect(model.showsPlanBanner, "a missed morning question leaves a Plan your day button")
+                model.dismissPlanBanner()
+                expect(!model.showsPlanBanner, "the Plan your day button closes for today")
+                model.planDoneDay = nil
                 model.undoLast()
             },
             {
@@ -495,10 +503,18 @@ enum Harness {
         model.reminderSound = true
         model.morningPlan = true
         model.planAskedDay = nil
-        // A test run must never be the active app: the user's keys would land here.
-        if NSApp.isActive { NSApp.deactivate() }
+        model.planDoneDay = nil
+        // A test run must never be the active app: the user's keys would land here. On macOS 27 a launch from
+        // a shell activates the app, and `deactivate()` no longer gives it up. Hiding does, and the panel comes
+        // back without activation.
+        func stepBack() {
+            guard NSApp.isActive else { return }
+            NSApp.hide(nil)
+            NSApp.unhideWithoutActivation()
+        }
+        stepBack()
         NotificationCenter.default.addObserver(forName: NSApplication.didBecomeActiveNotification,
-                                               object: nil, queue: .main) { _ in NSApp.deactivate() }
+                                               object: nil, queue: .main) { _ in stepBack() }
     }
 
     private static func save(_ panel: NSPanel, to url: URL) {
